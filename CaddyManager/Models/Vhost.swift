@@ -13,6 +13,14 @@ struct Vhost: Identifiable, Codable, Equatable {
             case .reverseProxy: return "Reverse Proxy"
             }
         }
+
+        var systemImage: String {
+            switch self {
+            case .staticSite: return "doc.on.doc"
+            case .phpSite: return "chevron.left.forwardslash.chevron.right"
+            case .reverseProxy: return "arrow.triangle.swap"
+            }
+        }
     }
 
     var id: UUID = UUID()

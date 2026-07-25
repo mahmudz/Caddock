@@ -5,51 +5,76 @@ struct MenuBarView: View {
     @Environment(CaddyProcessController.self) private var processController
     @Environment(VhostStore.self) private var vhostStore
     @Environment(\.openWindow) private var openWindow
-
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                Text(statusText)
-                    .font(.headline)
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center) {
+                HStack(spacing: 8) {
+                    Image(systemName: "server.rack")
+                        .foregroundStyle(statusColor)
+                    Text(statusText)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
 
-            if let lastError = vhostStore.lastError {
-                Text(lastError)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(3)
+                if let lastError = vhostStore.lastError {
+                    Label(lastError, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .lineLimit(3)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 8)
+                }
+
+                Toggle(isOn: Binding(
+                    get: { isRunning },
+                    set: { shouldRun in
+                        Task {
+                            if shouldRun {
+                                await vhostStore.regenerateAndReload()
+                            } else {
+                                await processController.stop()
+                            }
+                        }
+                    }
+                )) {
+                    
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .padding(.horizontal, 14)
             }
 
             Divider()
 
-            Button(isRunning ? "Stop Caddy" : "Start Caddy") {
-                Task {
-                    if isRunning {
-                        await processController.stop()
-                    } else {
-                        await vhostStore.regenerateAndReload()
-                    }
+            VStack(alignment: .leading, spacing: 2) {
+                MenuRow(title: "Vhosts", systemImage: "list.bullet.rectangle") {
+                    openAppWindow(id: "vhosts")
+                }
+                MenuRow(title: "Logs", systemImage: "doc.text") {
+                    openAppWindow(id: "logs")
+                }
+                MenuRow(title: "Settings", systemImage: "gearshape") {
+                    openAppWindow(id: "settings")
                 }
             }
+            .padding(.vertical, 6)
 
             Divider()
 
-            Button("Vhosts…") { openWindow(id: "vhosts") }
-            Button("Logs…") { openWindow(id: "logs") }
-            Button("Settings…") { openWindow(id: "settings") }
-
-            Divider()
-
-            Button("Quit CaddyManager") {
+            MenuRow(title: "Quit CaddyManager", systemImage: "power") {
                 NSApplication.shared.terminate(nil)
             }
+            .padding(.vertical, 6)
         }
-        .padding()
-        .frame(width: 240)
+        .frame(width: 260)
+    }
+
+    private func openAppWindow(id: String) {
+        openWindow(id: id)
+        NSApplication.shared.activate()
     }
 
     private var isRunning: Bool {
@@ -59,19 +84,46 @@ struct MenuBarView: View {
 
     private var statusText: String {
         switch processController.status {
-        case .stopped: return "Caddy stopped"
-        case .starting: return "Caddy starting…"
-        case .running: return "Caddy running"
-        case .failed(let message): return "Caddy failed: \(message)"
+        case .stopped: return "Caddy Stopped"
+        case .starting: return "Caddy Starting…"
+        case .running: return "Caddy Running"
+        case .failed: return "Caddy Failed"
         }
     }
 
     private var statusColor: Color {
         switch processController.status {
-        case .stopped: return .gray
+        case .stopped: return .secondary
         case .starting: return .yellow
         case .running: return .green
         case .failed: return .red
         }
+    }
+}
+
+private struct MenuRow: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .frame(width: 18)
+                Text(title)
+                Spacer()
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(isHovering ? Color.accentColor.opacity(0.15) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .padding(.horizontal, 6)
+        .onHover { isHovering = $0 }
     }
 }

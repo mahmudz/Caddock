@@ -29,10 +29,12 @@ final class CaddyProcessController {
 
     func start(caddyBinary: URL, caddyfileURL: URL) async {
         status = .starting
-
+        
         if await adminClient.isReachable() {
             do {
                 let json = try CaddyAdapter.adaptToJSON(caddyfileURL: caddyfileURL, caddyBinary: caddyBinary)
+                try await Task.sleep(nanoseconds: UInt64(1 * 1_000_000_000))
+                
                 try await adminClient.load(json)
                 status = .running
                 Self.logger.info("Reloaded already-running Caddy instance.")

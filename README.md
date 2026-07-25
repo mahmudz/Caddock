@@ -229,15 +229,15 @@ If `CaddyKit` is extracted into a local Swift package, its pure logic (`CaddyCon
 
 ## 9. MVP Feature Checklist
 
-- [ ] Add / edit / delete vhost (all three kinds)
-- [ ] Toggle SSL per vhost
-- [ ] Enable/disable a vhost without deleting it
-- [ ] Generate Caddyfile, adapt, hot-reload on any change
-- [ ] Detect missing Caddy install, prompt to `brew install caddy`
+- [x] Add / edit / delete vhost (all three kinds)
+- [x] Toggle SSL per vhost
+- [x] Enable/disable a vhost without deleting it
+- [x] Generate Caddyfile, adapt, hot-reload on any change
+- [x] Detect missing Caddy install, prompt to `brew install caddy`
 - [ ] Install `pf` redirect rules + `/etc/hosts` entries via helper on first run
 - [ ] Run `caddy trust` once, surface success/failure in UI
-- [ ] Start/stop Caddy from the menu bar; show running/stopped status
-- [ ] Basic log viewer (tail `caddy.log`)
-- [ ] Launch at login (`SMAppService.mainApp`)
+- [x] Start/stop Caddy from the menu bar; show running/stopped status
+- [x] Basic log viewer (tail `caddy.log`)
+- [x] Launch at login (`SMAppService.mainApp`)
 
 **Not MVP** (explicitly deferred, see §1): wildcard `*.test` DNS via `/etc/resolver`, bundled Caddy binary, Mac App Store distribution.

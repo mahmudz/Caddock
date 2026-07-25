@@ -9,6 +9,7 @@ final class AppSettings {
         static let httpsPort = "httpsPort"
         static let adminPort = "adminPort"
         static let launchAtLogin = "launchAtLogin"
+        static let hasTrustedCaddyCA = "hasTrustedCaddyCA"
     }
 
     private let defaults: UserDefaults
@@ -33,6 +34,10 @@ final class AppSettings {
         didSet { defaults.set(launchAtLogin, forKey: Keys.launchAtLogin) }
     }
 
+    var hasTrustedCaddyCA: Bool {
+        didSet { defaults.set(hasTrustedCaddyCA, forKey: Keys.hasTrustedCaddyCA) }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.caddyBinaryPathOverride = defaults.string(forKey: Keys.caddyBinaryPathOverride)
@@ -40,5 +45,6 @@ final class AppSettings {
         self.httpsPort = defaults.object(forKey: Keys.httpsPort) as? Int ?? 8843
         self.adminPort = defaults.object(forKey: Keys.adminPort) as? Int ?? 2019
         self.launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
+        self.hasTrustedCaddyCA = defaults.bool(forKey: Keys.hasTrustedCaddyCA)
     }
 }

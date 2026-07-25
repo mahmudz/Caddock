@@ -2,7 +2,7 @@ import Foundation
 
 enum CaddyConfigBuilder {
     static func buildCaddyfile(vhosts: [Vhost], settings: AppSettings) -> String {
-        var blocks: [String] = [globalOptionsBlock(settings: settings)]
+        var blocks: [String] = []
         blocks.append(contentsOf: vhosts.filter(\.isEnabled).map { block(for: $0) })
         return blocks.joined(separator: "\n\n") + "\n"
     }
@@ -19,12 +19,12 @@ enum CaddyConfigBuilder {
 
     private static func block(for vhost: Vhost) -> String {
         let address = vhost.sslEnabled ? vhost.domain : "http://\(vhost.domain)"
-        let tlsLine = vhost.sslEnabled ? "\n    tls internal" : ""
+//        let tlsLine = vhost.sslEnabled ? "\n    tls internal" : ""
 
         switch vhost.kind {
         case .staticSite:
             return """
-            \(address) {\(tlsLine)
+            \(address) {
                 root * \(vhost.documentRoot ?? "")
                 encode gzip
                 file_server
@@ -32,16 +32,16 @@ enum CaddyConfigBuilder {
             """
         case .phpSite:
             return """
-            \(address) {\(tlsLine)
+            \(address) {
                 root * \(vhost.documentRoot ?? "")
                 encode gzip
-                php_fastcgi unix/\(vhost.phpSocketPath ?? "")
+                php_fastcgi \(vhost.phpSocketPath ?? "")
                 file_server
             }
             """
         case .reverseProxy:
             return """
-            \(address) {\(tlsLine)
+            \(address) {
                 reverse_proxy \(vhost.proxyTarget ?? "")
             }
             """

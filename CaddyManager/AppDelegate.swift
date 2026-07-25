@@ -8,12 +8,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let settings: AppSettings
     let processController: CaddyProcessController
     let vhostStore: VhostStore
+    let helperInstaller: HelperInstaller
+    let helperClient: HelperClient
 
     override init() {
         let settings = AppSettings()
         self.settings = settings
         self.processController = CaddyProcessController(settings: settings)
-        self.vhostStore = VhostStore(settings: settings, processController: processController)
+        self.helperInstaller = HelperInstaller()
+        self.helperClient = HelperClient()
+        self.vhostStore = VhostStore(
+            settings: settings,
+            processController: processController,
+            helperInstaller: helperInstaller,
+            helperClient: helperClient
+        )
         super.init()
     }
 
@@ -23,6 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Task {
             await vhostStore.regenerateAndReload()
+
+//            if helperInstaller.isEnabled {
+//                do {
+//                    try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
+//                } catch {
+//                    Self.logger.error("Failed to re-assert pf redirect on launch: \(error.localizedDescription, privacy: .public)")
+//                }
+//            }
         }
     }
 

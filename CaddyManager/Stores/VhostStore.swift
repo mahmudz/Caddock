@@ -11,11 +11,15 @@ final class VhostStore {
 
     private let settings: AppSettings
     private let processController: CaddyProcessController
+    private let helperInstaller: HelperInstaller
+    private let helperClient: HelperClient
     private let fileManager = FileManager.default
 
-    init(settings: AppSettings, processController: CaddyProcessController) {
+    init(settings: AppSettings, processController: CaddyProcessController, helperInstaller: HelperInstaller, helperClient: HelperClient) {
         self.settings = settings
         self.processController = processController
+        self.helperInstaller = helperInstaller
+        self.helperClient = helperClient
         load()
     }
 
@@ -130,6 +134,15 @@ final class VhostStore {
                 await processController.start(caddyBinary: binary, caddyfileURL: url)
             }
             lastError = nil
+            
+            if helperInstaller.isEnabled {
+                do {
+                    try await helperClient.syncHosts(domains: vhosts.filter(\.isEnabled).map(\.domain))
+                    
+                } catch {
+                    Self.logger.error("Failed to sync /etc/hosts via helper: \(error.localizedDescription, privacy: .public)")
+                }
+            }
         } catch {
             Self.logger.error("Failed to regenerate/reload Caddy config: \(error.localizedDescription, privacy: .public)")
             lastError = error.localizedDescription

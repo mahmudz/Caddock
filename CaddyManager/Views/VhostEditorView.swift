@@ -15,53 +15,75 @@ struct VhostEditorView: View {
 
     var body: some View {
         Form {
-            Section("Domain") {
+            Section {
                 TextField("myproject.test", text: $vhost.domain)
+                    .textFieldStyle(.roundedBorder)
                 Picker("Type", selection: $vhost.kind) {
                     ForEach(Vhost.Kind.allCases, id: \.self) { kind in
-                        Text(kind.displayName).tag(kind)
+                        Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
                     }
                 }
+            } header: {
+                Label("Domain", systemImage: "globe")
             }
 
             switch vhost.kind {
             case .staticSite:
-                Section("Static Site") {
+                Section {
                     TextField("Document root", text: documentRootBinding)
+                } header: {
+                    Label("Static Site", systemImage: vhost.kind.systemImage)
+                } footer: {
+                    Text("Serves files directly from this folder via Caddy's file_server.")
                 }
             case .phpSite:
-                Section("PHP Site") {
+                Section {
                     TextField("Document root", text: documentRootBinding)
                     TextField("PHP-FPM socket path", text: phpSocketPathBinding)
+                } header: {
+                    Label("PHP Site", systemImage: vhost.kind.systemImage)
+                } footer: {
+                    Text("Serves files from this folder, routing .php requests to PHP-FPM over a unix socket.")
                 }
             case .reverseProxy:
-                Section("Reverse Proxy") {
+                Section {
                     TextField("Target (host:port)", text: proxyTargetBinding)
+                } header: {
+                    Label("Reverse Proxy", systemImage: vhost.kind.systemImage)
+                } footer: {
+                    Text("Forwards requests to a local process, e.g. 127.0.0.1:3000.")
                 }
             }
 
             Section {
-                Toggle("SSL enabled", isOn: $vhost.sslEnabled)
-                Toggle("Enabled", isOn: $vhost.isEnabled)
+                Toggle(isOn: $vhost.sslEnabled) {
+                    Label("SSL enabled", systemImage: "lock")
+                }
+                Toggle(isOn: $vhost.isEnabled) {
+                    Label("Enabled", systemImage: "power")
+                }
             }
 
             if !issues.isEmpty {
-                Section("Issues") {
+                Section {
                     ForEach(issues) { issue in
-                        Text(issue.message)
+                        Label(issue.message, systemImage: issue.severity == .error ? "exclamationmark.triangle.fill" : "exclamationmark.circle")
                             .foregroundStyle(issue.severity == .error ? .red : .orange)
+                            .font(.callout)
                     }
                 }
             }
         }
-        .padding()
-        .frame(minWidth: 420, minHeight: 380)
+        .formStyle(.grouped)
+        .frame(minWidth: 440, minHeight: 400)
+        .fixedSize(horizontal: false, vertical: true)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save", action: save)
+                    .buttonStyle(.borderedProminent)
             }
         }
         .onAppear(perform: normalizeFieldsForKind)

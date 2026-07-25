@@ -20,22 +20,25 @@ struct CaddyManagerApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        WindowGroup("Vhosts", id: "vhosts") {
+        Window("Vhosts", id: "vhosts") {
             VhostListView()
                 .environment(appDelegate.settings)
                 .environment(appDelegate.processController)
                 .environment(appDelegate.vhostStore)
         }
 
-        WindowGroup("Logs", id: "logs") {
+        Window("Logs", id: "logs") {
             LogsView()
         }
 
-        WindowGroup("Settings", id: "settings") {
+        Window("Settings", id: "settings") {
             SettingsView()
                 .environment(appDelegate.settings)
                 .environment(appDelegate.processController)
+                .environment(appDelegate.helperInstaller)
+                .environment(appDelegate.vhostStore)
         }
+        .windowResizability(.contentSize)
     }
 
     private var menuBarIcon: String {
