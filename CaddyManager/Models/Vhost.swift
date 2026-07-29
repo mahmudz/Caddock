@@ -31,4 +31,21 @@ struct Vhost: Identifiable, Codable, Equatable {
     var proxyTarget: String?      // required for .reverseProxy, e.g. "127.0.0.1:3000"
     var sslEnabled: Bool = true
     var isEnabled: Bool = true    // included in generated config only if true
+
+    /// URL to open this vhost in a browser.
+    func browserURL(settings: AppSettings, useStandardPorts: Bool) -> URL? {
+        guard !domain.isEmpty else { return nil }
+
+        if sslEnabled {
+            if useStandardPorts || settings.httpsPort == 443 {
+                return URL(string: "https://\(domain)")
+            }
+            return URL(string: "https://\(domain):\(settings.httpsPort)")
+        }
+
+        if useStandardPorts || settings.httpPort == 80 {
+            return URL(string: "http://\(domain)")
+        }
+        return URL(string: "http://\(domain):\(settings.httpPort)")
+    }
 }

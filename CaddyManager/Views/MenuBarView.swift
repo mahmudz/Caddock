@@ -2,34 +2,50 @@ import AppKit
 import SwiftUI
 
 struct MenuBarView: View {
+    @Environment(AppSettings.self) private var settings
     @Environment(CaddyProcessController.self) private var processController
     @Environment(VhostStore.self) private var vhostStore
+    @Environment(HelperInstaller.self) private var helperInstaller
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
-    
+
+    @State private var searchText = ""
+    @State private var isPresentingNewVhost = false
+
+    private let menuWidth: CGFloat = 280
+    private let visibleVhostLimit = 5
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center) {
-                HStack(spacing: 8) {
-                    Image(systemName: "server.rack")
-                        .foregroundStyle(statusColor)
-                    Text(statusText)
-                    Spacer()
-                }
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            statusHeader
 
-                if let lastError = vhostStore.lastError {
-                    Label(lastError, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .lineLimit(3)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 8)
-                }
+            Divider()
 
-                Toggle(isOn: Binding(
+            topActions
+
+            searchField
+
+            vhostList
+
+            Divider()
+
+            footerActions
+        }
+        .frame(width: menuWidth)
+        .sheet(isPresented: $isPresentingNewVhost) {
+            VhostEditorView(vhost: Vhost(domain: "", kind: .staticSite), isNew: false)
+                .environment(vhostStore)
+        }
+    }
+
+    private var statusHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "server.rack")
+                    .foregroundStyle(statusColor)
+                Text(statusText)
+                Spacer()
+                Toggle("", isOn: Binding(
                     get: { isRunning },
                     set: { shouldRun in
                         Task {
@@ -40,37 +56,120 @@ struct MenuBarView: View {
                             }
                         }
                     }
-                )) {
-                    
-                }
+                ))
+                .labelsHidden()
                 .toggleStyle(.switch)
-                .controlSize(.small)
+                .controlSize(.mini)
+            }
+
+            if let lastError = vhostStore.lastError {
+                Label(lastError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private var topActions: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            MenuActionRow(title: "New Vhost", systemImage: "plus") {
+                isPresentingNewVhost = true
+            }
+            MenuActionRow(title: "Manage Vhosts", systemImage: "list.bullet.rectangle") {
+                openAppWindow(id: "vhosts")
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            TextField("Search vhosts", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.callout)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+        .padding(.horizontal, 10)
+        .padding(.bottom, 6)
+    }
+
+    @ViewBuilder
+    private var vhostList: some View {
+        if filteredVhosts.isEmpty {
+            Text(searchText.isEmpty ? "No enabled vhosts." : "No matching vhosts.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
-            }
-
-            Divider()
-
+                .padding(.vertical, 8)
+        } else {
             VStack(alignment: .leading, spacing: 2) {
-                MenuRow(title: "Vhosts", systemImage: "list.bullet.rectangle") {
-                    openAppWindow(id: "vhosts")
+                ForEach(displayedVhosts) { vhost in
+                    VhostMenuRow(vhost: vhost) {
+                        openInBrowser(vhost)
+                    }
                 }
-                MenuRow(title: "Logs", systemImage: "doc.text") {
-                    openAppWindow(id: "logs")
-                }
-                MenuRow(title: "Settings", systemImage: "gearshape") {
-                    openSettingsWindow()
+
+                if filteredVhosts.count > displayedVhosts.count {
+                    MenuActionRow(title: "View All Vhosts", systemImage: "ellipsis") {
+                        openAppWindow(id: "vhosts")
+                    }
                 }
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
+        }
+    }
+
+    private var footerActions: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            MenuActionRow(title: "Logs", systemImage: "doc.text") {
+                openAppWindow(id: "logs")
+            }
+            MenuActionRow(title: "Settings", systemImage: "gearshape") {
+                openSettingsWindow()
+            }
 
             Divider()
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
 
-            MenuRow(title: "Quit CaddyManager", systemImage: "power") {
+            MenuActionRow(title: "Quit CaddyManager", systemImage: "power") {
                 NSApplication.shared.terminate(nil)
             }
-            .padding(.vertical, 6)
         }
-        .frame(width: 260)
+        .padding(.vertical, 6)
+    }
+
+    private var filteredVhosts: [Vhost] {
+        let enabled = vhostStore.vhosts
+            .filter(\.isEnabled)
+            .sorted { $0.domain.localizedCaseInsensitiveCompare($1.domain) == .orderedAscending }
+
+        guard !searchText.isEmpty else { return enabled }
+
+        return enabled.filter {
+            $0.domain.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private var displayedVhosts: [Vhost] {
+        let limit = searchText.isEmpty ? visibleVhostLimit : 10
+        return Array(filteredVhosts.prefix(limit))
+    }
+
+    private func openInBrowser(_ vhost: Vhost) {
+        guard let url = vhost.browserURL(
+            settings: settings,
+            useStandardPorts: helperInstaller.isEnabled
+        ) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func openAppWindow(id: String) {
@@ -120,29 +219,4 @@ struct MenuBarView: View {
     }
 }
 
-private struct MenuRow: View {
-    let title: String
-    let systemImage: String
-    let action: () -> Void
 
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .frame(width: 18)
-                Text(title)
-                Spacer()
-            }
-            .padding(.horizontal, 7)
-            .padding(.vertical, 5)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(isHovering ? Color.accentColor.opacity(0.15) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 5))
-        .padding(.horizontal, 6)
-        .onHover { isHovering = $0 }
-    }
-}

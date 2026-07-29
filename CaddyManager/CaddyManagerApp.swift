@@ -17,6 +17,7 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.settings)
                 .environment(appDelegate.processController)
                 .environment(appDelegate.vhostStore)
+                .environment(appDelegate.helperInstaller)
         }
         .menuBarExtraStyle(.window)
 
