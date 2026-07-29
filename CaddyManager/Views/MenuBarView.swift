@@ -5,6 +5,7 @@ struct MenuBarView: View {
     @Environment(CaddyProcessController.self) private var processController
     @Environment(VhostStore.self) private var vhostStore
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -57,7 +58,7 @@ struct MenuBarView: View {
                     openAppWindow(id: "logs")
                 }
                 MenuRow(title: "Settings", systemImage: "gearshape") {
-                    openAppWindow(id: "settings")
+                    openSettingsWindow()
                 }
             }
             .padding(.vertical, 6)
@@ -73,8 +74,26 @@ struct MenuBarView: View {
     }
 
     private func openAppWindow(id: String) {
-        openWindow(id: id)
-        NSApplication.shared.activate()
+        presentAppWindow {
+            openWindow(id: id)
+        }
+    }
+
+    private func openSettingsWindow() {
+        presentAppWindow {
+            openSettings()
+        }
+    }
+
+    private func presentAppWindow(open: () -> Void) {
+        NSApp.setActivationPolicy(.regular)
+        open()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            NSApp.activate(ignoringOtherApps: true)
+            if let window = NSApp.windows.filter({ $0.isVisible && $0.canBecomeKey }).last {
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
     }
 
     private var isRunning: Bool {

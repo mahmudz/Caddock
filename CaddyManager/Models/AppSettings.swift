@@ -10,6 +10,7 @@ final class AppSettings {
         static let adminPort = "adminPort"
         static let launchAtLogin = "launchAtLogin"
         static let hasTrustedCaddyCA = "hasTrustedCaddyCA"
+        static let clearLogsOnRestart = "clearLogsOnRestart"
     }
 
     private let defaults: UserDefaults
@@ -38,6 +39,10 @@ final class AppSettings {
         didSet { defaults.set(hasTrustedCaddyCA, forKey: Keys.hasTrustedCaddyCA) }
     }
 
+    var clearLogsOnRestart: Bool {
+        didSet { defaults.set(clearLogsOnRestart, forKey: Keys.clearLogsOnRestart) }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.caddyBinaryPathOverride = defaults.string(forKey: Keys.caddyBinaryPathOverride)
@@ -46,5 +51,6 @@ final class AppSettings {
         self.adminPort = defaults.object(forKey: Keys.adminPort) as? Int ?? 2019
         self.launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
         self.hasTrustedCaddyCA = defaults.bool(forKey: Keys.hasTrustedCaddyCA)
+        self.clearLogsOnRestart = defaults.bool(forKey: Keys.clearLogsOnRestart)
     }
 }

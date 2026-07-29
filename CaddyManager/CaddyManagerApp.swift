@@ -31,14 +31,13 @@ struct CaddyManagerApp: App {
             LogsView()
         }
 
-        Window("Settings", id: "settings") {
+        Settings {
             SettingsView()
                 .environment(appDelegate.settings)
                 .environment(appDelegate.processController)
                 .environment(appDelegate.helperInstaller)
                 .environment(appDelegate.vhostStore)
         }
-        .windowResizability(.contentSize)
     }
 
     private var menuBarIcon: String {

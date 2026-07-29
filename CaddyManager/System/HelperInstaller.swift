@@ -49,6 +49,26 @@ final class HelperInstaller {
         }
     }
 
+    /// Unregisters and re-registers the helper daemon. Use after rebuilding the app
+    /// when XPC connections fail due to a stale installed helper.
+    func reinstall() async {
+        do {
+            try await service.unregister()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+
+        refreshStatus()
+        try? await Task.sleep(nanoseconds: 500_000_000)
+
+        do {
+            try await service.register()
+            refreshStatus()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
     func openSystemSettingsLoginItems() {
         SMAppService.openSystemSettingsLoginItems()
     }

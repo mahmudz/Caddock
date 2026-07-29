@@ -47,11 +47,15 @@ final class CaddyProcessController {
 
         do {
             let logURL = try Self.logFileURL()
-            if !FileManager.default.fileExists(atPath: logURL.path) {
+            if settings.clearLogsOnRestart {
+                FileManager.default.createFile(atPath: logURL.path, contents: nil)
+            } else if !FileManager.default.fileExists(atPath: logURL.path) {
                 FileManager.default.createFile(atPath: logURL.path, contents: nil)
             }
             let logHandle = try FileHandle(forWritingTo: logURL)
-            logHandle.seekToEndOfFile()
+            if !settings.clearLogsOnRestart {
+                logHandle.seekToEndOfFile()
+            }
 
             let process = Process()
             process.executableURL = caddyBinary
