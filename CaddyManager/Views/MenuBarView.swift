@@ -5,12 +5,12 @@ struct MenuBarView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(CaddyProcessController.self) private var processController
     @Environment(VhostStore.self) private var vhostStore
+    @Environment(VhostEditorSession.self) private var vhostEditorSession
     @Environment(HelperInstaller.self) private var helperInstaller
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
 
     @State private var searchText = ""
-    @State private var isPresentingNewVhost = false
 
     private let menuWidth: CGFloat = 280
     private let visibleVhostLimit = 5
@@ -32,10 +32,6 @@ struct MenuBarView: View {
             footerActions
         }
         .frame(width: menuWidth)
-        .sheet(isPresented: $isPresentingNewVhost) {
-            VhostEditorView(vhost: Vhost(domain: "", kind: .staticSite), isNew: false)
-                .environment(vhostStore)
-        }
     }
 
     private var statusHeader: some View {
@@ -76,7 +72,7 @@ struct MenuBarView: View {
     private var topActions: some View {
         VStack(alignment: .leading, spacing: 2) {
             MenuActionRow(title: "New Vhost", systemImage: "plus") {
-                isPresentingNewVhost = true
+                openNewVhostWindow()
             }
             MenuActionRow(title: "Manage Vhosts", systemImage: "list.bullet.rectangle") {
                 openAppWindow(id: "vhosts")
@@ -172,27 +168,20 @@ struct MenuBarView: View {
         NSWorkspace.shared.open(url)
     }
 
+    private func openNewVhostWindow() {
+        AppWindowPresenter.presentVhostEditor(
+            session: vhostEditorSession,
+            openWindow: openWindow,
+            route: .newVhost()
+        )
+    }
+
     private func openAppWindow(id: String) {
-        presentAppWindow {
-            openWindow(id: id)
-        }
+        AppWindowPresenter.present(open: { openWindow(id: id) }, target: .window(id: id))
     }
 
     private func openSettingsWindow() {
-        presentAppWindow {
-            openSettings()
-        }
-    }
-
-    private func presentAppWindow(open: () -> Void) {
-        NSApp.setActivationPolicy(.regular)
-        open()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            NSApp.activate(ignoringOtherApps: true)
-            if let window = NSApp.windows.filter({ $0.isVisible && $0.canBecomeKey }).last {
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
+        AppWindowPresenter.present(open: { openSettings() }, target: .settings)
     }
 
     private var isRunning: Bool {

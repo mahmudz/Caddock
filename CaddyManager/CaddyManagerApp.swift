@@ -18,6 +18,7 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.processController)
                 .environment(appDelegate.vhostStore)
                 .environment(appDelegate.helperInstaller)
+                .environment(appDelegate.vhostEditorSession)
         }
         .menuBarExtraStyle(.window)
 
@@ -26,11 +27,21 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.settings)
                 .environment(appDelegate.processController)
                 .environment(appDelegate.vhostStore)
+                .environment(appDelegate.vhostEditorSession)
         }
 
         Window("Logs", id: "logs") {
             LogsView()
         }
+
+        Window("Vhost", id: "vhost-editor") {
+            VhostEditorWindowContent()
+                .environment(appDelegate.vhostEditorSession)
+                .environment(appDelegate.vhostStore)
+        }
+        .defaultLaunchBehavior(.suppressed)
+        .defaultPosition(.center)
+        .windowResizability(.contentSize)
 
         Settings {
             SettingsView()

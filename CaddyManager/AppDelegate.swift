@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let vhostStore: VhostStore
     let helperInstaller: HelperInstaller
     let helperClient: HelperClient
+    let vhostEditorSession: VhostEditorSession
 
     override init() {
         let settings = AppSettings()
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.processController = CaddyProcessController(settings: settings)
         self.helperInstaller = HelperInstaller()
         self.helperClient = HelperClient()
+        self.vhostEditorSession = VhostEditorSession()
         self.vhostStore = VhostStore(
             settings: settings,
             processController: processController,

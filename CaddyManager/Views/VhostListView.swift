@@ -2,8 +2,8 @@ import SwiftUI
 
 struct VhostListView: View {
     @Environment(VhostStore.self) private var vhostStore
-    @State private var editingVhost: Vhost?
-    @State private var isPresentingNew = false
+    @Environment(VhostEditorSession.self) private var vhostEditorSession
+    @Environment(\.openWindow) private var openWindow
     @State private var pendingDeletion: Vhost?
 
     var body: some View {
@@ -15,21 +15,21 @@ struct VhostListView: View {
                     } description: {
                         Text("Add a vhost to start serving a site through Caddy.")
                     } actions: {
-                        Button("Add Vhost") { isPresentingNew = true }
+                        Button("Add Vhost", action: openNewVhostEditor)
                     }
                 } else {
                     List {
                         ForEach(vhostStore.vhosts) { vhost in
                             VhostRow(vhost: vhost, onDelete: { pendingDeletion = vhost })
                                 .contentShape(Rectangle())
-                                .onTapGesture(count: 2) { editingVhost = vhost }
+                                .onTapGesture(count: 2) { openVhostEditor(vhost) }
                                 .contextMenu {
-                                    Button("Edit") { editingVhost = vhost }
+                                    Button("Edit") { openVhostEditor(vhost) }
                                     Button("Delete", role: .destructive) { pendingDeletion = vhost }
                                 }
                                 .swipeActions {
                                     Button("Delete", role: .destructive) { pendingDeletion = vhost }
-                                    Button("Edit") { editingVhost = vhost }
+                                    Button("Edit") { openVhostEditor(vhost) }
                                         .tint(.accentColor)
                                 }
                         }
@@ -40,21 +40,13 @@ struct VhostListView: View {
             .navigationTitle("Vhosts")
             .toolbar {
                 ToolbarItem {
-                    Button {
-                        isPresentingNew = true
-                    } label: {
+                    Button(action: openNewVhostEditor) {
                         Label("Add Vhost", systemImage: "plus")
                     }
                 }
             }
         }
         .frame(minWidth: 480, minHeight: 360)
-        .sheet(item: $editingVhost) { vhost in
-            VhostEditorView(vhost: vhost, isNew: false)
-        }
-        .sheet(isPresented: $isPresentingNew) {
-            VhostEditorView(vhost: Vhost(domain: "", kind: .staticSite), isNew: true)
-        }
         .confirmationDialog(
             "Delete \(pendingDeletion?.domain ?? "this vhost")?",
             isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
@@ -70,6 +62,22 @@ struct VhostListView: View {
         } message: {
             Text("This removes it from the Caddyfile and stops serving it. This cannot be undone.")
         }
+    }
+
+    private func openNewVhostEditor() {
+        AppWindowPresenter.presentVhostEditor(
+            session: vhostEditorSession,
+            openWindow: openWindow,
+            route: .newVhost()
+        )
+    }
+
+    private func openVhostEditor(_ vhost: Vhost) {
+        AppWindowPresenter.presentVhostEditor(
+            session: vhostEditorSession,
+            openWindow: openWindow,
+            route: .edit(vhost)
+        )
     }
 }
 

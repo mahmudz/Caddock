@@ -14,67 +14,64 @@ struct VhostEditorView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                TextField("myproject.test", text: $vhost.domain)
-                    .textFieldStyle(.roundedBorder)
-                Picker("Type", selection: $vhost.kind) {
-                    ForEach(Vhost.Kind.allCases, id: \.self) { kind in
-                        Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                validationBanner
+
+                Form {
+                    Section {
+                        TextField("myproject.test", text: $vhost.domain)
+                            .textFieldStyle(.roundedBorder)
+                        Picker("Type", selection: $vhost.kind) {
+                            ForEach(Vhost.Kind.allCases, id: \.self) { kind in
+                                Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
+                            }
+                        }
+                    } header: {
+                        Label("Domain", systemImage: "globe")
+                    }
+
+                    switch vhost.kind {
+                    case .staticSite:
+                        Section {
+                            TextField("Document root", text: documentRootBinding)
+                        } header: {
+                            Label("Static Site", systemImage: vhost.kind.systemImage)
+                        } footer: {
+                            Text("Serves files directly from this folder via Caddy's file_server.")
+                        }
+                    case .phpSite:
+                        Section {
+                            TextField("Document root", text: documentRootBinding)
+                            TextField("PHP-FPM socket path", text: phpSocketPathBinding)
+                        } header: {
+                            Label("PHP Site", systemImage: vhost.kind.systemImage)
+                        } footer: {
+                            Text("Serves files from this folder, routing .php requests to PHP-FPM over a unix socket.")
+                        }
+                    case .reverseProxy:
+                        Section {
+                            TextField("Target (host:port)", text: proxyTargetBinding)
+                        } header: {
+                            Label("Reverse Proxy", systemImage: vhost.kind.systemImage)
+                        } footer: {
+                            Text("Forwards requests to a local process, e.g. 127.0.0.1:3000.")
+                        }
+                    }
+
+                    Section {
+                        Toggle(isOn: $vhost.sslEnabled) {
+                            Label("SSL enabled", systemImage: "lock")
+                        }
+                        Toggle(isOn: $vhost.isEnabled) {
+                            Label("Enabled", systemImage: "power")
+                        }
                     }
                 }
-            } header: {
-                Label("Domain", systemImage: "globe")
+                .formStyle(.grouped)
             }
-
-            switch vhost.kind {
-            case .staticSite:
-                Section {
-                    TextField("Document root", text: documentRootBinding)
-                } header: {
-                    Label("Static Site", systemImage: vhost.kind.systemImage)
-                } footer: {
-                    Text("Serves files directly from this folder via Caddy's file_server.")
-                }
-            case .phpSite:
-                Section {
-                    TextField("Document root", text: documentRootBinding)
-                    TextField("PHP-FPM socket path", text: phpSocketPathBinding)
-                } header: {
-                    Label("PHP Site", systemImage: vhost.kind.systemImage)
-                } footer: {
-                    Text("Serves files from this folder, routing .php requests to PHP-FPM over a unix socket.")
-                }
-            case .reverseProxy:
-                Section {
-                    TextField("Target (host:port)", text: proxyTargetBinding)
-                } header: {
-                    Label("Reverse Proxy", systemImage: vhost.kind.systemImage)
-                } footer: {
-                    Text("Forwards requests to a local process, e.g. 127.0.0.1:3000.")
-                }
-            }
-
-            Section {
-                Toggle(isOn: $vhost.sslEnabled) {
-                    Label("SSL enabled", systemImage: "lock")
-                }
-                Toggle(isOn: $vhost.isEnabled) {
-                    Label("Enabled", systemImage: "power")
-                }
-            }
-
-            if !issues.isEmpty {
-                Section {
-                    ForEach(issues) { issue in
-                        Label(issue.message, systemImage: issue.severity == .error ? "exclamationmark.triangle.fill" : "exclamationmark.circle")
-                            .foregroundStyle(issue.severity == .error ? .red : .orange)
-                            .font(.callout)
-                    }
-                }
-            }
+            .padding(.top, issues.isEmpty ? 0 : 4)
         }
-        .formStyle(.grouped)
         .frame(minWidth: 440, minHeight: 400)
         .fixedSize(horizontal: false, vertical: true)
         .toolbar {
@@ -88,6 +85,26 @@ struct VhostEditorView: View {
         }
         .onAppear(perform: normalizeFieldsForKind)
         .onChange(of: vhost.kind) { _, _ in normalizeFieldsForKind() }
+    }
+
+    @ViewBuilder
+    private var validationBanner: some View {
+        if !issues.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(issues) { issue in
+                    Label(
+                        issue.message,
+                        systemImage: issue.severity == .error ? "exclamationmark.triangle.fill" : "exclamationmark.circle"
+                    )
+                    .foregroundStyle(issue.severity == .error ? .red : .orange)
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(12)
+            .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 12)
+        }
     }
 
     private var documentRootBinding: Binding<String> {
