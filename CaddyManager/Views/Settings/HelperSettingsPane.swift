@@ -13,7 +13,6 @@ struct HelperSettingsPane: View {
     @Environment(HelperInstaller.self) private var helperInstaller
     @Environment(VhostStore.self) private var vhostStore
     @State private var helperClient = HelperClient()
-    @State private var detectedBinary: URL?
     @State private var helperActionError: String?
     @State private var showApprovalAlert = false
     @State private var isWorking = false
@@ -33,22 +32,12 @@ struct HelperSettingsPane: View {
                 } label: {
                     Label("Privileged Helper", systemImage: "lock.shield")
                 }
-
-                if helperInstaller.isEnabled {
-                    LabeledContent {
-                        Button(settings.hasTrustedCaddyCA ? "Re-run" : "Trust", action: trustCaddy)
-                            .controlSize(.small)
-                            .disabled(detectedBinary == nil || isWorking)
-                    } label: {
-                        Label("Local CA Trust", systemImage: "checkmark.seal")
-                    }
-                }
             } footer: {
                 Text(helperStatusText)
             }
 
             Section {
-                Text("Installs pf redirect rules (80→\(settings.httpPort), 443→\(settings.httpsPort)) and keeps /etc/hosts in sync with your enabled vhosts.")
+                Text("Installs pf redirect rules (80→\(settings.httpPort), 443→\(settings.httpsPort)) and keeps /etc/hosts in sync with your enabled vhosts. Use the Certificates tab to install Caddy's Root CA.")
             }
 
             if let helperActionError {
@@ -80,7 +69,6 @@ struct HelperSettingsPane: View {
         }
         .settingsFormStyle()
         .onAppear {
-            detectedBinary = CaddyInstallation.locateBinary(override: settings.caddyBinaryPathOverride)
             helperInstaller.refreshStatus()
             if helperInstaller.state == .requiresApproval {
                 showApprovalAlert = true
@@ -197,28 +185,16 @@ struct HelperSettingsPane: View {
     private func finishHelperSetup() async {
         do {
             _ = try await helperClient.ping()
-            try await helperClient.syncHosts(domains: vhostStore.vhosts.filter(\.isEnabled).map(\.domain))
+            try await helperClient.syncHosts(domains: vhostStore.enabledHostnamesForHosts())
+            try await helperClient.syncResolvers(
+                tlds: vhostStore.enabledResolverTLDs(),
+                dnsPort: LocalDomainPolicy.dnsListenPort
+            )
+            try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
+            await vhostStore.regenerateAndReload()
             helperActionError = nil
         } catch {
             helperActionError = error.localizedDescription
-        }
-    }
-
-    private func trustCaddy() {
-        guard let detectedBinary else { return }
-        Task {
-            isWorking = true
-            defer { isWorking = false }
-            do {
-                try await helperClient.trustCaddyRootCertificate(
-                    caddyBinaryPath: detectedBinary.path,
-                    callingUserHome: NSHomeDirectory()
-                )
-                settings.hasTrustedCaddyCA = true
-                helperActionError = nil
-            } catch {
-                helperActionError = error.localizedDescription
-            }
         }
     }
 }

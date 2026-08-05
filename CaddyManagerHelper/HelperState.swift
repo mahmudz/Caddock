@@ -4,6 +4,8 @@ struct HelperState: Codable {
     var httpPort: Int?
     var httpsPort: Int?
     var domains: [String] = []
+    var resolverTLDs: [String] = []
+    var dnsPort: Int?
 
     static func load() -> HelperState {
         guard let data = try? Data(contentsOf: HelperConstants.helperStateFileURL),

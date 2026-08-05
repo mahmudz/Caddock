@@ -13,13 +13,21 @@ final class VhostStore {
     private let processController: CaddyProcessController
     private let helperInstaller: HelperInstaller
     private let helperClient: HelperClient
+    private let dnsResponder: LocalDNSResponder
     private let fileManager = FileManager.default
 
-    init(settings: AppSettings, processController: CaddyProcessController, helperInstaller: HelperInstaller, helperClient: HelperClient) {
+    init(
+        settings: AppSettings,
+        processController: CaddyProcessController,
+        helperInstaller: HelperInstaller,
+        helperClient: HelperClient,
+        dnsResponder: LocalDNSResponder
+    ) {
         self.settings = settings
         self.processController = processController
         self.helperInstaller = helperInstaller
         self.helperClient = helperClient
+        self.dnsResponder = dnsResponder
         load()
     }
 
@@ -115,6 +123,22 @@ final class VhostStore {
         Task { await regenerateAndReload() }
     }
 
+    // MARK: - Import / Export
+
+    func exportData() throws -> Data {
+        try VhostImportExport.exportData(vhosts: vhosts)
+    }
+
+    @discardableResult
+    func importData(_ data: Data) throws -> Int {
+        let result = try VhostImportExport.importVhosts(from: data, existing: vhosts)
+        guard !result.imported.isEmpty else { return result.skipped }
+        vhosts.append(contentsOf: result.imported)
+        persist()
+        Task { await regenerateAndReload() }
+        return result.skipped
+    }
+
     // MARK: - Caddy sync
 
     func regenerateAndReload() async {
@@ -137,15 +161,43 @@ final class VhostStore {
             
             if helperInstaller.isEnabled {
                 do {
-                    try await helperClient.syncHosts(domains: vhosts.filter(\.isEnabled).map(\.domain))
-                    
+                    let domains = enabledHostnamesForHosts()
+                    let tlds = enabledResolverTLDs()
+                    try await helperClient.syncHosts(domains: domains)
+                    try await helperClient.syncResolvers(tlds: tlds, dnsPort: LocalDomainPolicy.dnsListenPort)
+                    try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
+                    dnsResponder.update(tlds: tlds)
                 } catch {
-                    Self.logger.error("Failed to sync /etc/hosts via helper: \(error.localizedDescription, privacy: .public)")
+                    Self.logger.error("Failed to sync hosts/pf/resolvers via helper: \(error.localizedDescription, privacy: .public)")
                 }
+            } else {
+                dnsResponder.stop()
             }
         } catch {
             Self.logger.error("Failed to regenerate/reload Caddy config: \(error.localizedDescription, privacy: .public)")
             lastError = error.localizedDescription
         }
+    }
+
+    /// Explicit hostnames for /etc/hosts (non-wildcard domains + aliases).
+    func enabledHostnamesForHosts() -> [String] {
+        vhosts
+            .filter(\.isEnabled)
+            .flatMap(\.allDomains)
+            .filter { !$0.hasPrefix("*.") }
+            .reduce(into: [String]()) { result, domain in
+                if !result.contains(domain) { result.append(domain) }
+            }
+    }
+
+    /// TLDs that need /etc/resolver + local DNS (any enabled wildcard under that TLD).
+    func enabledResolverTLDs() -> [String] {
+        var tlds = Set<String>()
+        for vhost in vhosts where vhost.isEnabled && vhost.isWildcard {
+            if let tld = vhost.topLevelDomain {
+                tlds.insert(tld)
+            }
+        }
+        return tlds.sorted()
     }
 }

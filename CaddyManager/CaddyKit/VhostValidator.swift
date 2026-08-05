@@ -15,6 +15,9 @@ enum VhostValidator {
     private static let domainRegex = try! NSRegularExpression(
         pattern: #"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#
     )
+    private static let wildcardDomainRegex = try! NSRegularExpression(
+        pattern: #"^\*\.[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#
+    )
 
     static func validate(_ vhost: Vhost, existing: [Vhost]) -> [VhostValidationIssue] {
         var issues: [VhostValidationIssue] = []
@@ -23,11 +26,20 @@ enum VhostValidator {
             issues.append(.init(severity: .error, message: "Domain cannot be empty."))
         } else if vhost.domain != vhost.domain.lowercased() || vhost.domain.contains(where: \.isWhitespace) {
             issues.append(.init(severity: .error, message: "Domain must be lowercase with no whitespace."))
-        } else {
-            let range = NSRange(vhost.domain.startIndex..<vhost.domain.endIndex, in: vhost.domain)
-            if domainRegex.firstMatch(in: vhost.domain, range: range) == nil {
-                issues.append(.init(severity: .error, message: "Domain does not look like a valid hostname (e.g. myapp.test)."))
-            }
+        } else if !isValidHostname(vhost.domain, allowWildcard: true) {
+            issues.append(.init(severity: .error, message: "Domain does not look like a valid hostname (e.g. myapp.test or *.myapp.test)."))
+        }
+
+        if let tld = LocalDomainPolicy.tld(of: vhost.domain), LocalDomainPolicy.isBlockedPublicTLD(tld) {
+            issues.append(.init(
+                severity: .error,
+                message: "Do not use public TLD \".\(tld)\" for local sites. Prefer .test, .local, .localhost, or .example."
+            ))
+        } else if let tld = LocalDomainPolicy.tld(of: vhost.domain), !LocalDomainPolicy.isRecommendedTLD(tld) {
+            issues.append(.init(
+                severity: .warning,
+                message: "TLD \".\(tld)\" is not a reserved local TLD. Prefer .test, .local, .localhost, or .example."
+            ))
         }
 
         if existing.contains(where: { $0.id != vhost.id && $0.allDomains.contains(vhost.domain.lowercased()) }) {
@@ -37,18 +49,19 @@ enum VhostValidator {
         let reservedDomains = Set(
             existing
                 .filter { $0.id != vhost.id }
-                .flatMap { [$0.domain.lowercased()] + $0.aliases.map { $0.lowercased() } }
+                .flatMap(\.allDomains)
         )
         for alias in vhost.aliases.map({ $0.trimmingCharacters(in: .whitespaces).lowercased() }).filter({ !$0.isEmpty }) {
             if alias == vhost.domain.lowercased() {
                 issues.append(.init(severity: .error, message: "Alias \"\(alias)\" duplicates the primary domain."))
             } else if reservedDomains.contains(alias) {
                 issues.append(.init(severity: .error, message: "Another vhost already uses \"\(alias)\"."))
-            } else {
-                let range = NSRange(alias.startIndex..<alias.endIndex, in: alias)
-                if domainRegex.firstMatch(in: alias, range: range) == nil {
-                    issues.append(.init(severity: .error, message: "Alias \"\(alias)\" does not look like a valid hostname."))
-                }
+            } else if LocalDomainPolicy.isWildcardDomain(alias) {
+                issues.append(.init(severity: .error, message: "Wildcard aliases are not supported — put the wildcard on the primary domain."))
+            } else if !isValidHostname(alias, allowWildcard: false) {
+                issues.append(.init(severity: .error, message: "Alias \"\(alias)\" does not look like a valid hostname."))
+            } else if let tld = LocalDomainPolicy.tld(of: alias), LocalDomainPolicy.isBlockedPublicTLD(tld) {
+                issues.append(.init(severity: .error, message: "Alias \"\(alias)\" uses blocked public TLD \".\(tld)\"."))
             }
         }
 
@@ -91,6 +104,14 @@ enum VhostValidator {
         }
 
         return issues
+    }
+
+    private static func isValidHostname(_ value: String, allowWildcard: Bool) -> Bool {
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        if allowWildcard, LocalDomainPolicy.isWildcardDomain(value) {
+            return wildcardDomainRegex.firstMatch(in: value, range: range) != nil
+        }
+        return domainRegex.firstMatch(in: value, range: range) != nil
     }
 
     private static func indexFileIssues(for vhost: Vhost) -> [VhostValidationIssue] {

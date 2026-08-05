@@ -41,6 +41,18 @@ final class HelperClient {
         }
     }
 
+    func syncResolvers(tlds: [String], dnsPort: Int) async throws {
+        try await perform { proxy, reply in
+            proxy.syncResolvers(tlds: tlds, dnsPort: dnsPort, reply: reply)
+        }
+    }
+
+    func removeResolvers() async throws {
+        try await perform { proxy, reply in
+            proxy.removeResolvers(reply: reply)
+        }
+    }
+
     func trustCaddyRootCertificate(caddyBinaryPath: String, callingUserHome: String) async throws {
         try await perform { proxy, reply in
             proxy.trustCaddyRootCertificate(caddyBinaryPath: caddyBinaryPath, callingUserHome: callingUserHome, reply: reply)

@@ -2,7 +2,7 @@ import Foundation
 
 enum CaddyConfigBuilder {
     static func buildCaddyfile(vhosts: [Vhost], settings: AppSettings) -> String {
-        var blocks: [String] = []
+        var blocks: [String] = [globalOptionsBlock(settings: settings)]
         blocks.append(contentsOf: vhosts.filter(\.isEnabled).map { block(for: $0) })
         return blocks.joined(separator: "\n\n") + "\n"
     }
@@ -44,7 +44,7 @@ enum CaddyConfigBuilder {
             """
         case .reverseProxy:
             return """
-            \(address) {
+            \(address) {\(tlsLine)
                 \(reverseProxyBlock(for: vhost))
             }
             """
@@ -64,7 +64,7 @@ enum CaddyConfigBuilder {
         if socketPath.hasPrefix("unix/") || socketPath.contains("://") {
             return socketPath
         }
-        return "\(socketPath)"
+        return "unix/\(socketPath)"
     }
 
     private static func reverseProxyBlock(for vhost: Vhost) -> String {

@@ -1,10 +1,3 @@
-//
-//  CaddyManagerApp.swift
-//  CaddyManager
-//
-//  Created by mahmud on 24/7/26.
-//
-
 import SwiftUI
 
 @main
@@ -19,6 +12,7 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.vhostStore)
                 .environment(appDelegate.helperInstaller)
                 .environment(appDelegate.vhostEditorSession)
+                .environment(appDelegate.healthCheckService)
         }
         .menuBarExtraStyle(.window)
 
@@ -29,11 +23,27 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.vhostStore)
                 .environment(appDelegate.vhostEditorSession)
                 .environment(appDelegate.helperInstaller)
+                .environment(appDelegate.healthCheckService)
         }
 
         Window("Logs", id: "logs") {
             LogsView()
         }
+
+        Window("Docker Compose", id: "docker-compose") {
+            DockerComposeInjectView()
+                .environment(appDelegate.vhostStore)
+        }
+
+        WindowGroup("Site Logs", id: "site-logs", for: UUID.self) { $vhostID in
+            if let vhostID, let vhost = appDelegate.vhostStore.vhosts.first(where: { $0.id == vhostID }) {
+                SiteLogsView(vhost: vhost)
+            } else {
+                Text("Vhost not found.")
+                    .frame(minWidth: 320, minHeight: 200)
+            }
+        }
+        .defaultLaunchBehavior(.suppressed)
 
         Window("Vhost", id: "vhost-editor") {
             VhostEditorWindowContent()

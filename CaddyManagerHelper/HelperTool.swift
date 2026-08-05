@@ -56,6 +56,32 @@ final class HelperTool: NSObject, HelperProtocol {
         }
     }
 
+    func syncResolvers(tlds: [String], dnsPort: Int, reply: @escaping (Bool, String?) -> Void) {
+        do {
+            try ResolverManager.sync(tlds: tlds, dnsPort: dnsPort)
+            var state = HelperState.load()
+            state.resolverTLDs = tlds
+            state.dnsPort = dnsPort
+            state.save()
+            reply(true, nil)
+        } catch {
+            reply(false, String(describing: error))
+        }
+    }
+
+    func removeResolvers(reply: @escaping (Bool, String?) -> Void) {
+        do {
+            try ResolverManager.removeAll()
+            var state = HelperState.load()
+            state.resolverTLDs = []
+            state.dnsPort = nil
+            state.save()
+            reply(true, nil)
+        } catch {
+            reply(false, String(describing: error))
+        }
+    }
+
     func trustCaddyRootCertificate(caddyBinaryPath: String, callingUserHome: String, reply: @escaping (Bool, String?) -> Void) {
         do {
             try CaddyTrustRunner.trust(caddyBinaryPath: caddyBinaryPath, callingUserHome: callingUserHome)
@@ -66,10 +92,10 @@ final class HelperTool: NSObject, HelperProtocol {
     }
 
     func uninstallAll(reply: @escaping (Bool, String?) -> Void) {
-        print("uninstallAll")
         var messages: [String] = []
-//        do { try PFRedirectManager.remove() } catch { messages.append(String(describing: error)) }
+        do { try PFRedirectManager.remove() } catch { messages.append(String(describing: error)) }
         do { try HostsFileManager.removeAll() } catch { messages.append(String(describing: error)) }
+        do { try ResolverManager.removeAll() } catch { messages.append(String(describing: error)) }
         try? FileManager.default.removeItem(at: HelperConstants.helperStateFileURL)
         reply(messages.isEmpty, messages.isEmpty ? nil : messages.joined(separator: "; "))
     }
@@ -81,6 +107,12 @@ final class HelperTool: NSObject, HelperProtocol {
         }
         if !state.domains.isEmpty {
             try? HostsFileManager.sync(domains: state.domains)
+        }
+        if !state.resolverTLDs.isEmpty {
+            try? ResolverManager.sync(
+                tlds: state.resolverTLDs,
+                dnsPort: state.dnsPort ?? HelperConstants.dnsListenPort
+            )
         }
     }
 }

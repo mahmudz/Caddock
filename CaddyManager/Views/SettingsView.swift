@@ -10,6 +10,9 @@ struct SettingsView: View {
             Tab("Ports", systemImage: "network") {
                 PortsSettingsPane()
             }
+            Tab("Certificates", systemImage: "checkmark.shield") {
+                CertificateSettingsPane()
+            }
             Tab("Advanced", systemImage: "lock.shield") {
                 HelperSettingsPane()
             }

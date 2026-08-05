@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let helperInstaller: HelperInstaller
     let helperClient: HelperClient
     let vhostEditorSession: VhostEditorSession
+    let dnsResponder: LocalDNSResponder
+    let healthCheckService: HealthCheckService
 
     override init() {
         let settings = AppSettings()
@@ -19,11 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.helperInstaller = HelperInstaller()
         self.helperClient = HelperClient()
         self.vhostEditorSession = VhostEditorSession()
+        self.dnsResponder = LocalDNSResponder()
+        self.healthCheckService = HealthCheckService()
         self.vhostStore = VhostStore(
             settings: settings,
             processController: processController,
             helperInstaller: helperInstaller,
-            helperClient: helperClient
+            helperClient: helperClient,
+            dnsResponder: dnsResponder
         )
         super.init()
     }
@@ -32,16 +37,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         syncLoginItemRegistration()
 
+        healthCheckService.configure(
+            settings: settings,
+            processController: processController,
+            helperInstaller: helperInstaller,
+            vhosts: { [weak self] in self?.vhostStore.vhosts ?? [] }
+        )
+        healthCheckService.start()
+
         Task {
             await vhostStore.regenerateAndReload()
 
-//            if helperInstaller.isEnabled {
-//                do {
-//                    try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
-//                } catch {
-//                    Self.logger.error("Failed to re-assert pf redirect on launch: \(error.localizedDescription, privacy: .public)")
-//                }
-//            }
+            if helperInstaller.isEnabled {
+                do {
+                    try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
+                } catch {
+                    Self.logger.error("Failed to re-assert pf redirect on launch: \(error.localizedDescription, privacy: .public)")
+                }
+            }
         }
     }
 

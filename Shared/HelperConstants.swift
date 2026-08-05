@@ -11,4 +11,5 @@ enum HelperConstants {
     static let pfMarkerBegin = "# BEGIN CaddyManager pf"
     static let pfMarkerEnd = "# END CaddyManager pf"
     static let helperStateFileURL = URL(fileURLWithPath: "/Library/Application Support/CaddyManager/HelperState.json")
+    static let dnsListenPort = 53_535
 }

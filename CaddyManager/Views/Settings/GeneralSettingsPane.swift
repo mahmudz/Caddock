@@ -31,6 +31,11 @@ struct GeneralSettingsPane: View {
                     Label("Caddy", systemImage: "terminal")
                 }
 
+                TextField("Custom binary path (optional)", text: customPathBinding)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .onSubmit(detect)
+
                 if detectedBinary == nil {
                     Text("brew install caddy")
                         .font(.system(.caption, design: .monospaced))
@@ -68,6 +73,17 @@ struct GeneralSettingsPane: View {
     private func detect() {
         detectedBinary = CaddyInstallation.locateBinary(override: settings.caddyBinaryPathOverride)
         detectedVersion = detectedBinary.flatMap { try? CaddyInstallation.version(of: $0) }
+    }
+
+    private var customPathBinding: Binding<String> {
+        Binding(
+            get: { settings.caddyBinaryPathOverride ?? "" },
+            set: { raw in
+                let trimmed = raw.trimmingCharacters(in: .whitespaces)
+                settings.caddyBinaryPathOverride = trimmed.isEmpty ? nil : trimmed
+                detect()
+            }
+        )
     }
 
     private func syncLoginItem() {

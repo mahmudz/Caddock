@@ -18,10 +18,9 @@ enum PFRedirectManager {
     private static let anchorFilePath = "/etc/pf.anchors/\(HelperConstants.pfAnchorName)"
 
     static func install(httpPort: Int, httpsPort: Int) throws {
-        print("PFRedirectManager::install")
-//        try writeAnchorFile(httpPort: httpPort, httpsPort: httpsPort)
-//        try patchPFConf(installing: true)
-//        try reloadAndEnable()
+        try writeAnchorFile(httpPort: httpPort, httpsPort: httpsPort)
+        try patchPFConf(installing: true)
+        try reloadAndEnable()
     }
 
     static func remove() throws {
@@ -39,7 +38,6 @@ enum PFRedirectManager {
     }
 
     private static func patchPFConf(installing: Bool) throws {
-        print("patchPFConf")
         let originalContents = (try? String(contentsOfFile: pfConfPath, encoding: .utf8)) ?? ""
 
         if installing && !FileManager.default.fileExists(atPath: pfConfBackupPath) {
@@ -67,9 +65,7 @@ enum PFRedirectManager {
 
         lines.insert(contentsOf: block, at: insertionIndex)
         let newContents = lines.joined(separator: "\n")
-        
-        print(newContents)
-        
+
         let tempPath = pfConfPath + ".caddymanager.tmp"
         try newContents.write(toFile: tempPath, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(atPath: tempPath) }
@@ -89,7 +85,6 @@ enum PFRedirectManager {
     }
 
     private static func reloadAndEnable() throws {
-        print("reloadAndEnable")
         let load = try ProcessRunner.run("/sbin/pfctl", ["-f", pfConfPath])
         guard load.exitCode == 0 else {
             throw PFRedirectError.commandFailed(load.output)

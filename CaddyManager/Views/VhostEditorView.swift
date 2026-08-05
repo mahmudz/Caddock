@@ -23,6 +23,7 @@ struct VhostEditorView: View {
                     kindSpecificSection
                     serverOptionsSection
                     proxyOptionsSection
+                    logSourceSection
                     generalSection
                 }
                 .formStyle(.grouped)
@@ -60,7 +61,7 @@ struct VhostEditorView: View {
         } header: {
             Label("Domain", systemImage: "globe")
         } footer: {
-            Text("Aliases serve the same site block under additional hostnames, e.g. www.myproject.test.")
+            Text("Aliases serve the same site block under additional hostnames. Use *.myapp.test for wildcards (requires privileged helper + local DNS).")
         }
     }
 
@@ -136,6 +137,37 @@ struct VhostEditorView: View {
         }
     }
 
+    private var logSourceSection: some View {
+        Section {
+            Picker("Source", selection: $vhost.logSource.kind) {
+                ForEach(VhostLogSourceKind.allCases) { kind in
+                    Text(kind.displayName).tag(kind)
+                }
+            }
+            switch vhost.logSource.kind {
+            case .none:
+                EmptyView()
+            case .file:
+                TextField("Log file path", text: filePathBinding)
+                    .textFieldStyle(.roundedBorder)
+                Toggle("Follow file", isOn: $vhost.logSource.followFile)
+                TextField("Lines from end", text: linesFromEndBinding)
+                    .textFieldStyle(.roundedBorder)
+            case .docker:
+                TextField("Container name or ID", text: dockerContainerBinding)
+                    .textFieldStyle(.roundedBorder)
+                Toggle("Follow logs", isOn: $vhost.logSource.dockerFollow)
+                Toggle("Show timestamps", isOn: $vhost.logSource.dockerTimestamps)
+                TextField("Tail lines", text: dockerTailBinding)
+                    .textFieldStyle(.roundedBorder)
+            }
+        } header: {
+            Label("Logs", systemImage: "doc.text")
+        } footer: {
+            Text("Optional per-site log source. Opens from the menu bar when configured.")
+        }
+    }
+
     private var generalSection: some View {
         Section {
             Toggle(isOn: $vhost.sslEnabled) {
@@ -195,6 +227,42 @@ struct VhostEditorView: View {
                     .split(separator: ",")
                     .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
                     .filter { !$0.isEmpty }
+            }
+        )
+    }
+
+    private var filePathBinding: Binding<String> {
+        Binding(
+            get: { vhost.logSource.filePath ?? "" },
+            set: { vhost.logSource.filePath = $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    private var linesFromEndBinding: Binding<String> {
+        Binding(
+            get: {
+                guard let value = vhost.logSource.linesFromEnd else { return "" }
+                return String(value)
+            },
+            set: { raw in
+                let trimmed = raw.trimmingCharacters(in: .whitespaces)
+                vhost.logSource.linesFromEnd = trimmed.isEmpty ? nil : Int(trimmed)
+            }
+        )
+    }
+
+    private var dockerContainerBinding: Binding<String> {
+        Binding(
+            get: { vhost.logSource.dockerContainer ?? "" },
+            set: { vhost.logSource.dockerContainer = $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    private var dockerTailBinding: Binding<String> {
+        Binding(
+            get: { String(vhost.logSource.dockerTail) },
+            set: { raw in
+                vhost.logSource.dockerTail = Int(raw.trimmingCharacters(in: .whitespaces)) ?? 100
             }
         )
     }

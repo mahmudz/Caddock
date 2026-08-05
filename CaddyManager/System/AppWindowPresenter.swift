@@ -7,7 +7,7 @@ enum AppWindowPresenter {
         case window(id: String)
     }
 
-    private static let settingsTabTitles = Set(["General", "Ports", "Advanced", "About"])
+    private static let settingsTabTitles = Set(["General", "Ports", "Certificates", "Advanced", "About"])
     private static let vhostEditorTitles = Set(["Vhost", "New Vhost", "Edit Vhost"])
 
     static func present(open: @escaping () -> Void, target: Target) {
@@ -106,6 +106,8 @@ enum AppWindowPresenter {
         case "vhosts": return "Vhosts"
         case "logs": return "Logs"
         case "vhost-editor": return "Vhost"
+        case "docker-compose": return "Docker Compose"
+        case "site-logs": return "Site Logs"
         default: return id.capitalized
         }
     }
