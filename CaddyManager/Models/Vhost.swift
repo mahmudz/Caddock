@@ -25,12 +25,43 @@ struct Vhost: Identifiable, Codable, Equatable {
 
     var id: UUID = UUID()
     var domain: String            // e.g. "myproject.test"
+    var aliases: [String] = []    // additional hostnames served by the same site block
     var kind: Kind
     var documentRoot: String?     // required for .staticSite / .phpSite
     var phpSocketPath: String?    // required for .phpSite, e.g. "/opt/homebrew/var/run/php/php8.3.sock"
     var proxyTarget: String?      // required for .reverseProxy, e.g. "127.0.0.1:3000"
     var sslEnabled: Bool = true
     var isEnabled: Bool = true    // included in generated config only if true
+
+    // Server options
+    var compressionEnabled: Bool = true
+    var indexFiles: String?       // nil = kind default (index.html or index.html index.php)
+
+    // Reverse-proxy options
+    var websocketEnabled: Bool = true       // long-lived connections for WebSocket / SSE / HMR
+    var preserveHostHeader: Bool = false    // header_up Host {host}
+    var forwardProxyHeaders: Bool = true    // X-Forwarded-* and X-Real-IP
+
+    /// All hostnames (primary + aliases), trimmed and deduplicated.
+    var allDomains: [String] {
+        var seen = Set<String>()
+        return ([domain] + aliases)
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            .filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+
+    func defaultIndexFiles() -> String {
+        switch kind {
+        case .staticSite: return "index.html"
+        case .phpSite: return "index.html index.php"
+        case .reverseProxy: return ""
+        }
+    }
+
+    func resolvedIndexFiles() -> String {
+        let trimmed = indexFiles?.trimmingCharacters(in: .whitespaces) ?? ""
+        return trimmed.isEmpty ? defaultIndexFiles() : trimmed
+    }
 
     /// URL to open this vhost in a browser.
     func browserURL(settings: AppSettings, useStandardPorts: Bool) -> URL? {

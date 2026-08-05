@@ -30,8 +30,30 @@ enum VhostValidator {
             }
         }
 
-        if existing.contains(where: { $0.id != vhost.id && $0.domain == vhost.domain }) {
+        if existing.contains(where: { $0.id != vhost.id && $0.allDomains.contains(vhost.domain.lowercased()) }) {
             issues.append(.init(severity: .error, message: "Another vhost already uses this domain."))
+        }
+
+        let reservedDomains = Set(
+            existing
+                .filter { $0.id != vhost.id }
+                .flatMap { [$0.domain.lowercased()] + $0.aliases.map { $0.lowercased() } }
+        )
+        for alias in vhost.aliases.map({ $0.trimmingCharacters(in: .whitespaces).lowercased() }).filter({ !$0.isEmpty }) {
+            if alias == vhost.domain.lowercased() {
+                issues.append(.init(severity: .error, message: "Alias \"\(alias)\" duplicates the primary domain."))
+            } else if reservedDomains.contains(alias) {
+                issues.append(.init(severity: .error, message: "Another vhost already uses \"\(alias)\"."))
+            } else {
+                let range = NSRange(alias.startIndex..<alias.endIndex, in: alias)
+                if domainRegex.firstMatch(in: alias, range: range) == nil {
+                    issues.append(.init(severity: .error, message: "Alias \"\(alias)\" does not look like a valid hostname."))
+                }
+            }
+        }
+
+        if vhost.allDomains.count != ([vhost.domain] + vhost.aliases.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }).filter({ !$0.isEmpty }).count {
+            issues.append(.init(severity: .error, message: "Duplicate aliases are not allowed."))
         }
 
         switch vhost.kind {
@@ -42,6 +64,7 @@ enum VhostValidator {
             if vhost.phpSocketPath != nil || vhost.proxyTarget != nil {
                 issues.append(.init(severity: .error, message: "Static sites must not set a PHP socket or proxy target."))
             }
+            issues.append(contentsOf: indexFileIssues(for: vhost))
         case .phpSite:
             if isBlank(vhost.documentRoot) {
                 issues.append(.init(severity: .error, message: "PHP sites require a document root."))
@@ -54,6 +77,7 @@ enum VhostValidator {
             if vhost.proxyTarget != nil {
                 issues.append(.init(severity: .error, message: "PHP sites must not set a proxy target."))
             }
+            issues.append(contentsOf: indexFileIssues(for: vhost))
         case .reverseProxy:
             if isBlank(vhost.proxyTarget) {
                 issues.append(.init(severity: .error, message: "Reverse proxies require a target (e.g. 127.0.0.1:3000)."))
@@ -61,9 +85,26 @@ enum VhostValidator {
             if vhost.documentRoot != nil || vhost.phpSocketPath != nil {
                 issues.append(.init(severity: .error, message: "Reverse proxies must not set a document root or PHP socket."))
             }
+            if vhost.indexFiles != nil && !isBlank(vhost.indexFiles) {
+                issues.append(.init(severity: .error, message: "Reverse proxies must not set index files."))
+            }
         }
 
         return issues
+    }
+
+    private static func indexFileIssues(for vhost: Vhost) -> [VhostValidationIssue] {
+        guard !isBlank(vhost.indexFiles) else { return [] }
+        let tokens = vhost.indexFiles!
+            .split(whereSeparator: \.isWhitespace)
+            .map(String.init)
+        if tokens.isEmpty {
+            return [.init(severity: .error, message: "Index files cannot be blank when specified.")]
+        }
+        if tokens.contains(where: { $0.contains("/") || $0.isEmpty }) {
+            return [.init(severity: .error, message: "Index files must be filenames only (e.g. index.html index.php).")]
+        }
+        return []
     }
 
     static func isValid(_ vhost: Vhost, existing: [Vhost]) -> Bool {

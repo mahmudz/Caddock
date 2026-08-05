@@ -18,33 +18,80 @@ enum CaddyConfigBuilder {
     }
 
     private static func block(for vhost: Vhost) -> String {
-        let address = vhost.sslEnabled ? vhost.domain : "http://\(vhost.domain)"
-//        let tlsLine = vhost.sslEnabled ? "\n    tls internal" : ""
+        let address = siteAddresses(for: vhost)
+        let tlsLine = vhost.sslEnabled ? "\n    tls internal" : ""
+        let encodeLine = vhost.compressionEnabled ? "\n    encode gzip" : ""
 
         switch vhost.kind {
         case .staticSite:
             return """
-            \(address) {
+            \(address) {\(tlsLine) \(encodeLine)
                 root * \(vhost.documentRoot ?? "")
-                encode gzip
-                file_server
+                file_server {
+                    index \(vhost.resolvedIndexFiles())
+                }
             }
             """
         case .phpSite:
             return """
-            \(address) {
+            \(address) {\(tlsLine) \(encodeLine)
                 root * \(vhost.documentRoot ?? "")
-                encode gzip
-                php_fastcgi \(vhost.phpSocketPath ?? "")
-                file_server
+                php_fastcgi \(phpFastcgiTarget(vhost.phpSocketPath ?? ""))
+                file_server {
+                    index \(vhost.resolvedIndexFiles())
+                }
             }
             """
         case .reverseProxy:
             return """
             \(address) {
-                reverse_proxy \(vhost.proxyTarget ?? "")
+                \(reverseProxyBlock(for: vhost))
             }
             """
         }
+    }
+
+    private static func siteAddresses(for vhost: Vhost) -> String {
+        let hosts = vhost.allDomains
+        guard !hosts.isEmpty else { return vhost.domain }
+        if vhost.sslEnabled {
+            return hosts.joined(separator: ", ")
+        }
+        return hosts.map { "http://\($0)" }.joined(separator: ", ")
+    }
+
+    private static func phpFastcgiTarget(_ socketPath: String) -> String {
+        if socketPath.hasPrefix("unix/") || socketPath.contains("://") {
+            return socketPath
+        }
+        return "\(socketPath)"
+    }
+
+    private static func reverseProxyBlock(for vhost: Vhost) -> String {
+        let target = vhost.proxyTarget ?? ""
+        let needsBlock = vhost.websocketEnabled || vhost.preserveHostHeader || vhost.forwardProxyHeaders
+        guard needsBlock else {
+            return "reverse_proxy \(target)"
+        }
+
+        var lines = ["reverse_proxy \(target) {"]
+        if vhost.websocketEnabled {
+            lines.append("    flush_interval -1")
+            lines.append("    transport http {")
+            lines.append("        read_timeout 0")
+            lines.append("        write_timeout 0")
+            lines.append("    }")
+        }
+        if vhost.preserveHostHeader {
+            lines.append("    header_up Host {host}")
+        }
+        if vhost.forwardProxyHeaders {
+            lines.append("    header_up X-Real-IP {remote_host}")
+            lines.append("    header_up X-Forwarded-For {remote_host}")
+            lines.append("    header_up X-Forwarded-Proto {scheme}")
+            lines.append("    header_up X-Forwarded-Host {host}")
+        }
+        lines.append("}")
+        return lines.joined(separator: "\n    ")
     }
 }

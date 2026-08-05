@@ -28,6 +28,7 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.processController)
                 .environment(appDelegate.vhostStore)
                 .environment(appDelegate.vhostEditorSession)
+                .environment(appDelegate.helperInstaller)
         }
 
         Window("Logs", id: "logs") {
