@@ -61,10 +61,15 @@ enum CaddyConfigBuilder {
     }
 
     private static func phpFastcgiTarget(_ socketPath: String) -> String {
-        if socketPath.hasPrefix("unix/") || socketPath.contains("://") {
-            return socketPath
+        let trimmed = socketPath.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("unix/") || trimmed.contains("://") {
+            return trimmed
         }
-        return "unix/\(socketPath)"
+        // Absolute filesystem path → unix socket. Otherwise treat as TCP host:port.
+        if trimmed.hasPrefix("/") {
+            return "unix/\(trimmed)"
+        }
+        return trimmed
     }
 
     private static func reverseProxyBlock(for vhost: Vhost) -> String {
