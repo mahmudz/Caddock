@@ -21,7 +21,6 @@ struct SettingsView: View {
             }
         }
         .frame(width: 440)
-        .fixedSize(horizontal: true, vertical: false)
         .tabViewStyle(.tabBarOnly)
     }
 }
