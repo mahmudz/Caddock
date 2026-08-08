@@ -12,7 +12,9 @@ extension View {
     func settingsFormStyle() -> some View {
         formStyle(.grouped)
             .scrollContentBackground(.hidden)
+            .scrollDisabled(true)
             .scrollEdgeEffectStyleSoftIfAvailable()
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
