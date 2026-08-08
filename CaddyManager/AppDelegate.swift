@@ -37,6 +37,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         syncLoginItemRegistration()
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowWillClose(_:)),
+            name: NSWindow.willCloseNotification,
+            object: nil
+        )
+
         healthCheckService.configure(
             settings: settings,
             processController: processController,
@@ -59,6 +66,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     )
                 }
             }
+        }
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    @objc private func windowWillClose(_ notification: Notification) {
+        let closing = notification.object as? NSWindow
+        // Defer: willClose fires before window leaves NSApp.windows / visibility flips.
+        DispatchQueue.main.async {
+            AppWindowPresenter.hideDockIconIfNoWindows(excluding: closing)
         }
     }
 

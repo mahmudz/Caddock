@@ -40,6 +40,8 @@ enum CertificateTrustInstaller {
         NSApp.activate(ignoringOtherApps: true)
         RunLoop.current.run(until: Date().addingTimeInterval(0.15))
 
+        defer { AppWindowPresenter.hideDockIconIfNoWindows() }
+
         // 1) User trust domain — enough for Safari/Chrome for this macOS user.
         try setTrustSettings(certificate, domain: .user)
 

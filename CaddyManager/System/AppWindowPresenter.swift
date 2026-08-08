@@ -32,6 +32,17 @@ enum AppWindowPresenter {
         }
     }
 
+    /// Menu-bar mode: hide Dock icon when no real windows remain open.
+    static func hideDockIconIfNoWindows(excluding closingWindow: NSWindow? = nil) {
+        let remaining = NSApp.windows.contains { window in
+            guard window !== closingWindow else { return false }
+            guard window.canBecomeKey, !isMenuBarPanel(window) else { return false }
+            return window.isVisible || window.isMiniaturized
+        }
+        guard !remaining else { return }
+        NSApp.setActivationPolicy(.accessory)
+    }
+
     private static func focus(target: Target, attempt: Int) {
         let delay = attempt == 0 ? 0.0 : 0.12
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
