@@ -71,6 +71,13 @@ struct MenuBarView: View {
                     .lineLimit(2)
             }
 
+            if let helperSyncError = vhostStore.helperSyncError {
+                Label(helperSyncError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .lineLimit(3)
+            }
+
             if let importExportMessage {
                 Text(importExportMessage)
                     .font(.caption)

@@ -3,10 +3,7 @@ import SwiftUI
 
 struct CertificateSettingsPane: View {
     @Environment(AppSettings.self) private var settings
-    @Environment(HelperInstaller.self) private var helperInstaller
-    @State private var helperClient = HelperClient()
     @State private var trustStatus: CertificateTrustStatus = .notInstalled
-    @State private var detectedBinary: URL?
     @State private var actionError: String?
     @State private var isWorking = false
     @State private var mobileShare = MobileCertShareServer()
@@ -33,7 +30,7 @@ struct CertificateSettingsPane: View {
                 LabeledContent {
                     Button(settings.hasTrustedCaddyCA ? "Re-install" : "Install Root CA", action: installRootCA)
                         .controlSize(.small)
-                        .disabled(!helperInstaller.isEnabled || detectedBinary == nil || isWorking)
+                        .disabled(isWorking || trustStatus == .notInstalled)
                 } label: {
                     Label("Install Root CA", systemImage: "plus.circle")
                 }
@@ -45,9 +42,7 @@ struct CertificateSettingsPane: View {
                     Label("Keychain Access", systemImage: "key")
                 }
             } footer: {
-                if !helperInstaller.isEnabled {
-                    Text("Enable the privileged helper under Advanced to install the Root CA into the System keychain.")
-                }
+                Text("Trusts Caddy's Root CA for your user account. macOS may ask you to authenticate.")
             }
 
             if trustStatus == .installedNotTrusted {
@@ -121,10 +116,7 @@ struct CertificateSettingsPane: View {
             }
         }
         .settingsFormStyle()
-        .onAppear {
-            detectedBinary = CaddyInstallation.locateBinary(override: settings.caddyBinaryPathOverride)
-            refresh()
-        }
+        .onAppear(perform: refresh)
         .onDisappear {
             mobileShare.stop()
         }
@@ -179,21 +171,15 @@ struct CertificateSettingsPane: View {
     }
 
     private func installRootCA() {
-        guard let detectedBinary else { return }
-        Task {
-            isWorking = true
-            defer { isWorking = false }
-            do {
-                try await helperClient.trustCaddyRootCertificate(
-                    caddyBinaryPath: detectedBinary.path,
-                    callingUserHome: NSHomeDirectory()
-                )
-                settings.hasTrustedCaddyCA = true
-                actionError = nil
-                refresh()
-            } catch {
-                actionError = error.localizedDescription
-            }
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try CertificateTrustInstaller.installRootCA()
+            settings.hasTrustedCaddyCA = true
+            actionError = nil
+            refresh()
+        } catch {
+            actionError = error.localizedDescription
         }
     }
 }

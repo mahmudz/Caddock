@@ -2,8 +2,9 @@ import Foundation
 
 enum LocalDomainPolicy {
     /// TLDs reserved for local/testing use.
+    /// Note: `.local` is listed but discouraged — Bonjour/mDNS owns it on macOS.
     static let recommendedTLDs: Set<String> = [
-        "local", "test", "localhost", "example", "invalid", "lan", "home", "internal",
+        "test", "localhost", "example", "invalid", "lan", "home", "internal",
     ]
 
     /// Common public TLDs that must never be used with /etc/resolver wildcards.

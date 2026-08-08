@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import os
 
 enum CaddyStatus: Equatable {
     case stopped
@@ -11,7 +10,7 @@ enum CaddyStatus: Equatable {
 
 @Observable
 final class CaddyProcessController {
-    private static let logger = Logger(subsystem: "dev.mahmudz.CaddyManager", category: "CaddyProcessController")
+    private static let logger = AppLogger(category: "CaddyProcessController")
 
     private(set) var status: CaddyStatus = .stopped
 
@@ -40,7 +39,7 @@ final class CaddyProcessController {
                 Self.logger.info("Reloaded already-running Caddy instance.")
             } catch {
                 status = .failed(error.localizedDescription)
-                Self.logger.error("Reload of running Caddy failed: \(error.localizedDescription, privacy: .public)")
+                Self.logger.error("Reload of running Caddy failed: \(error.localizedDescription)")
             }
             return
         }
@@ -82,7 +81,7 @@ final class CaddyProcessController {
             Self.logger.info("Started Caddy process (pid \(process.processIdentifier)).")
         } catch {
             status = .failed(error.localizedDescription)
-            Self.logger.error("Failed to start Caddy: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Failed to start Caddy: \(error.localizedDescription)")
         }
     }
 
@@ -104,10 +103,6 @@ final class CaddyProcessController {
     }
 
     static func logFileURL() throws -> URL {
-        let dir = try FileManager.default.url(
-            for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-        ).appendingPathComponent("Logs/CaddyManager", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("caddy.log")
+        try LogFiles.caddyLogURL()
     }
 }

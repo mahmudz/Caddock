@@ -1,9 +1,8 @@
 import AppKit
 import ServiceManagement
-import os
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private static let logger = Logger(subsystem: "dev.mahmudz.CaddyManager", category: "AppDelegate")
+    private static let logger = AppLogger(category: "AppDelegate")
 
     let settings: AppSettings
     let processController: CaddyProcessController
@@ -34,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppLog.bootstrap()
         NSApp.setActivationPolicy(.accessory)
         syncLoginItemRegistration()
 
@@ -48,11 +48,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await vhostStore.regenerateAndReload()
 
+            // After reboot, pf redirects are gone and the helper may not be ready yet.
+            // Retry privileged sync (ping → hosts → resolvers → pf) with backoff.
             if helperInstaller.isEnabled {
-                do {
-                    try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
-                } catch {
-                    Self.logger.error("Failed to re-assert pf redirect on launch: \(error.localizedDescription, privacy: .public)")
+                let ok = await vhostStore.ensurePrivilegedNetworkingOnLaunch()
+                if !ok {
+                    let detail = self.vhostStore.helperSyncError ?? "unknown"
+                    Self.logger.error(
+                        "Privileged networking still failed after launch retries: \(detail)"
+                    )
                 }
             }
         }
@@ -66,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            Self.logger.error("Failed to sync login item registration: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Failed to sync login item registration: \(error.localizedDescription)")
         }
     }
 }

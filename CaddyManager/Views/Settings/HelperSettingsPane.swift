@@ -183,18 +183,8 @@ struct HelperSettingsPane: View {
     }
 
     private func finishHelperSetup() async {
-        do {
-            _ = try await helperClient.ping()
-            try await helperClient.syncHosts(domains: vhostStore.enabledHostnamesForHosts())
-            try await helperClient.syncResolvers(
-                tlds: vhostStore.enabledResolverTLDs(),
-                dnsPort: LocalDomainPolicy.dnsListenPort
-            )
-            try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
-            await vhostStore.regenerateAndReload()
-            helperActionError = nil
-        } catch {
-            helperActionError = error.localizedDescription
-        }
+        _ = await vhostStore.syncPrivilegedNetworking()
+        await vhostStore.regenerateAndReload()
+        helperActionError = vhostStore.helperSyncError
     }
 }

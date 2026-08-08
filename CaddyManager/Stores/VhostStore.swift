@@ -1,13 +1,14 @@
 import Foundation
 import Observation
-import os
 
 @Observable
 final class VhostStore {
-    private static let logger = Logger(subsystem: "dev.mahmudz.CaddyManager", category: "VhostStore")
+    private static let logger = AppLogger(category: "VhostStore")
 
     private(set) var vhosts: [Vhost] = []
     var lastError: String?
+    /// Set when privileged helper sync (hosts/resolvers/pf) fails after retries.
+    var helperSyncError: String?
 
     private let settings: AppSettings
     private let processController: CaddyProcessController
@@ -64,7 +65,7 @@ final class VhostStore {
             let data = try Data(contentsOf: url)
             vhosts = try JSONDecoder().decode([Vhost].self, from: data)
         } catch {
-            Self.logger.error("Failed to load vhosts: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Failed to load vhosts: \(error.localizedDescription)")
             lastError = error.localizedDescription
         }
     }
@@ -75,7 +76,7 @@ final class VhostStore {
             let data = try JSONEncoder().encode(vhosts)
             try data.write(to: url, options: .atomic)
         } catch {
-            Self.logger.error("Failed to save vhosts: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Failed to save vhosts: \(error.localizedDescription)")
             lastError = error.localizedDescription
         }
     }
@@ -158,25 +159,115 @@ final class VhostStore {
                 await processController.start(caddyBinary: binary, caddyfileURL: url)
             }
             lastError = nil
-            
+
             if helperInstaller.isEnabled {
-                do {
-                    let domains = enabledHostnamesForHosts()
-                    let tlds = enabledResolverTLDs()
-                    try await helperClient.syncHosts(domains: domains)
-                    try await helperClient.syncResolvers(tlds: tlds, dnsPort: LocalDomainPolicy.dnsListenPort)
-                    try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
-                    dnsResponder.update(tlds: tlds)
-                } catch {
-                    Self.logger.error("Failed to sync hosts/pf/resolvers via helper: \(error.localizedDescription, privacy: .public)")
-                }
+                _ = await syncPrivilegedNetworking()
             } else {
+                helperSyncError = nil
                 dnsResponder.stop()
             }
         } catch {
-            Self.logger.error("Failed to regenerate/reload Caddy config: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Failed to regenerate/reload Caddy config: \(error.localizedDescription)")
             lastError = error.localizedDescription
         }
+    }
+
+    /// Ping helper, then sync hosts / resolvers / pf independently.
+    /// Returns `true` when ping and pf redirect both succeed (sites on :80/:443 need pf).
+    @discardableResult
+    func syncPrivilegedNetworking() async -> Bool {
+        guard helperInstaller.isEnabled else {
+            helperSyncError = nil
+            dnsResponder.stop()
+            return true
+        }
+
+        var errors: [String] = []
+
+        helperInstaller.refreshStatus()
+        guard helperInstaller.isEnabled else {
+            helperSyncError = nil
+            dnsResponder.stop()
+            return true
+        }
+
+        do {
+            _ = try await helperClient.ping()
+        } catch {
+            let message = error.localizedDescription
+            Self.logger.error("Helper ping failed: \(message)")
+            if message.localizedCaseInsensitiveContains("invalidated")
+                || message.localizedCaseInsensitiveContains("interrupted") {
+                helperSyncError = "Privileged helper unreachable (\(message)). Open Settings → Helper and press Reinstall."
+            } else {
+                helperSyncError = "Privileged helper unreachable: \(message)"
+            }
+            return false
+        }
+
+        let domains = enabledHostnamesForHosts()
+        let tlds = enabledResolverTLDs()
+
+        do {
+            try await helperClient.syncHosts(domains: domains)
+        } catch {
+            let message = error.localizedDescription
+            Self.logger.error("Failed to sync hosts via helper: \(message)")
+            errors.append("hosts: \(message)")
+        }
+
+        do {
+            try await helperClient.syncResolvers(tlds: tlds, dnsPort: LocalDomainPolicy.dnsListenPort)
+            dnsResponder.update(tlds: tlds)
+        } catch {
+            let message = error.localizedDescription
+            Self.logger.error("Failed to sync resolvers via helper: \(message)")
+            errors.append("resolvers: \(message)")
+            if tlds.isEmpty {
+                dnsResponder.stop()
+            }
+        }
+
+        var pfOK = false
+        do {
+            try await helperClient.installPFRedirect(httpPort: settings.httpPort, httpsPort: settings.httpsPort)
+            pfOK = true
+        } catch {
+            let message = error.localizedDescription
+            Self.logger.error("Failed to install pf redirect via helper: \(message)")
+            errors.append("pf: \(message)")
+        }
+
+        if errors.isEmpty {
+            helperSyncError = nil
+        } else {
+            helperSyncError = "Privileged networking incomplete: \(errors.joined(separator: "; "))"
+        }
+        // Sites on :80/:443 need pf; hosts/resolvers failures are reported but do not block launch retries.
+        return pfOK
+    }
+
+    /// Retries `syncPrivilegedNetworking` with exponential backoff until success or ~30s elapsed.
+    @discardableResult
+    func ensurePrivilegedNetworkingOnLaunch() async -> Bool {
+        guard helperInstaller.isEnabled else {
+            helperSyncError = nil
+            return true
+        }
+
+        var delayNs: UInt64 = 500_000_000
+        let maxDelayNs: UInt64 = 8_000_000_000
+        // 0.5 + 1 + 2 + 4 + 8 + 8 ≈ 23.5s of sleeps, plus attempt work ≈ ~30s window
+        for attempt in 0..<6 {
+            if await syncPrivilegedNetworking() {
+                return true
+            }
+            if attempt == 5 { break }
+            Self.logger.info("Privileged networking sync retry \(attempt + 1) after failure")
+            try? await Task.sleep(nanoseconds: delayNs)
+            delayNs = min(delayNs * 2, maxDelayNs)
+        }
+        return false
     }
 
     /// Explicit hostnames for /etc/hosts (non-wildcard domains + aliases).

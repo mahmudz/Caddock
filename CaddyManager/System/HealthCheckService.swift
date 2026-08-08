@@ -8,6 +8,19 @@ enum BackendHealthStatus: Equatable {
     case unhealthy
 }
 
+/// Refuses redirects so HTTP probes never chase Caddy into HTTPS/TLS.
+private final class HealthCheckSessionDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
+    }
+}
+
 @Observable
 final class HealthCheckService {
     private(set) var statuses: [UUID: BackendHealthStatus] = [:]
@@ -18,6 +31,17 @@ final class HealthCheckService {
     private weak var processController: CaddyProcessController?
     private weak var helperInstaller: HelperInstaller?
     private var vhostsProvider: (() -> [Vhost])?
+
+    private let sessionDelegate = HealthCheckSessionDelegate()
+    private let session: URLSession
+
+    init() {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 3
+        config.timeoutIntervalForResource = 3
+        config.waitsForConnectivity = false
+        session = URLSession(configuration: config, delegate: sessionDelegate, delegateQueue: nil)
+    }
 
     func configure(
         settings: AppSettings,
@@ -55,43 +79,26 @@ final class HealthCheckService {
             statuses = [:]
             return
         }
-        guard let settings, let helperInstaller, let vhostsProvider else { return }
+        guard let settings, let vhostsProvider else { return }
 
         let enabled = vhostsProvider().filter(\.isEnabled)
         let enabledIDs = Set(enabled.map(\.id))
         statuses = statuses.filter { enabledIDs.contains($0.key) }
 
         for vhost in enabled {
-            check(vhost: vhost, settings: settings, useStandardPorts: helperInstaller.isEnabled)
+            check(vhost: vhost, settings: settings)
         }
     }
 
-    private func check(vhost: Vhost, settings: AppSettings, useStandardPorts: Bool) {
+    private func check(vhost: Vhost, settings: AppSettings) {
         guard !inFlight.contains(vhost.id) else { return }
 
-        let url: URL?
-        switch vhost.kind {
-        case .reverseProxy:
-            if let target = vhost.proxyTarget, !target.isEmpty {
-                if target.contains("://") {
-                    url = URL(string: target)
-                } else {
-                    url = URL(string: "http://\(target)")
-                }
-            } else {
-                url = vhost.browserURL(settings: settings, useStandardPorts: useStandardPorts)
-            }
-        case .staticSite, .phpSite:
-            url = vhost.browserURL(settings: settings, useStandardPorts: useStandardPorts)
-        }
-
-        guard let url else {
+        if vhost.isWildcard, vhost.kind != .reverseProxy {
             statuses[vhost.id] = .unknown
             return
         }
 
-        // Skip wildcard primary domains — no concrete host to probe.
-        if vhost.isWildcard, vhost.kind != .reverseProxy {
+        guard let request = makeRequest(for: vhost, settings: settings) else {
             statuses[vhost.id] = .unknown
             return
         }
@@ -99,24 +106,58 @@ final class HealthCheckService {
         inFlight.insert(vhost.id)
         statuses[vhost.id] = .checking
 
-        var request = URLRequest(url: url, timeoutInterval: 5)
-        request.httpMethod = "HEAD"
-
         let id = vhost.id
-        URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
+        let kind = vhost.kind
+        session.dataTask(with: request) { [weak self] _, response, error in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.inFlight.remove(id)
-                if error != nil {
-                    self.statuses[id] = .unhealthy
+
+                if let http = response as? HTTPURLResponse {
+                    self.statuses[id] = (200..<500).contains(http.statusCode) ? .healthy : .unhealthy
                     return
                 }
-                guard let http = response as? HTTPURLResponse else {
-                    self.statuses[id] = .unhealthy
+
+                // Refusing an HTTP→HTTPS redirect cancels the task; that still means Caddy answered.
+                if kind != .reverseProxy,
+                   let urlError = error as? URLError,
+                   urlError.code == .cancelled {
+                    self.statuses[id] = .healthy
                     return
                 }
-                self.statuses[id] = (200..<400).contains(http.statusCode) ? .healthy : .unhealthy
+
+                self.statuses[id] = .unhealthy
             }
         }.resume()
+    }
+
+    /// Probe without DNS and without TLS.
+    private func makeRequest(for vhost: Vhost, settings: AppSettings) -> URLRequest? {
+        switch vhost.kind {
+        case .reverseProxy:
+            guard let target = vhost.proxyTarget?.trimmingCharacters(in: .whitespaces), !target.isEmpty else {
+                return nil
+            }
+            let url: URL?
+            if target.contains("://") {
+                url = URL(string: target)
+            } else {
+                url = URL(string: "http://\(target)")
+            }
+            guard let url else { return nil }
+            var request = URLRequest(url: url)
+            request.httpMethod = "HEAD"
+            request.setValue(vhost.domain, forHTTPHeaderField: "Host")
+            return request
+
+        case .staticSite, .phpSite:
+            // Hit Caddy's HTTP port directly (skip pf / TLS / SNI / mDNS).
+            let port = settings.httpPort
+            guard let url = URL(string: "http://127.0.0.1:\(port)/") else { return nil }
+            var request = URLRequest(url: url)
+            request.httpMethod = "HEAD"
+            request.setValue(vhost.domain, forHTTPHeaderField: "Host")
+            return request
+        }
     }
 }

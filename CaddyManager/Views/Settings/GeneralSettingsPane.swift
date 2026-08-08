@@ -63,7 +63,7 @@ struct GeneralSettingsPane: View {
                     Label("Clear Logs on Restart", systemImage: "doc.text")
                 }
             } footer: {
-                Text("Clears the log file when Caddy is stopped and started again. Config reloads while Caddy is running are not affected.")
+                Text("Clears the Caddy log file when Caddy is stopped and started again. App logs are unaffected. Config reloads while Caddy is running are not affected.")
             }
         }
         .settingsFormStyle()

@@ -105,6 +105,14 @@ struct VhostListView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(Color.red.opacity(0.08))
+        } else if let helperSyncError = vhostStore.helperSyncError {
+            Label(helperSyncError, systemImage: "exclamationmark.triangle.fill")
+                .font(.callout)
+                .foregroundStyle(.orange)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.08))
         } else {
             HStack(spacing: 8) {
                 Circle()

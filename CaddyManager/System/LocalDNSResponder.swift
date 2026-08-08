@@ -1,12 +1,11 @@
 import Foundation
 import Network
 import Observation
-import os
 
 /// Minimal UDP DNS responder: answers A queries for configured TLDs with 127.0.0.1.
 @Observable
 final class LocalDNSResponder {
-    private static let logger = Logger(subsystem: "dev.mahmudz.CaddyManager", category: "LocalDNS")
+    private static let logger = AppLogger(category: "LocalDNS")
 
     private(set) var isRunning = false
     private(set) var lastError: String?
@@ -43,7 +42,7 @@ final class LocalDNSResponder {
                 case .failed(let error):
                     self?.isRunning = false
                     self?.lastError = error.localizedDescription
-                    Self.logger.error("DNS responder failed: \(error.localizedDescription, privacy: .public)")
+                    Self.logger.error("DNS responder failed: \(error.localizedDescription)")
                 case .cancelled:
                     self?.isRunning = false
                 default:
@@ -54,7 +53,7 @@ final class LocalDNSResponder {
             self.listener = listener
         } catch {
             lastError = error.localizedDescription
-            Self.logger.error("Failed to start DNS responder: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("Failed to start DNS responder: \(error.localizedDescription)")
         }
     }
 

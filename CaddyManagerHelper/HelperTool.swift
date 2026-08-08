@@ -1,6 +1,9 @@
 import Foundation
+import os
 
 final class HelperTool: NSObject, HelperProtocol {
+    private static let logger = Logger(subsystem: "dev.mahmudz.CaddyManager.Helper", category: "HelperTool")
+
     func getVersion(reply: @escaping (String) -> Void) {
         reply("1")
     }
@@ -103,16 +106,28 @@ final class HelperTool: NSObject, HelperProtocol {
     func reapplyPersistedStateIfNeeded() {
         let state = HelperState.load()
         if let httpPort = state.httpPort, let httpsPort = state.httpsPort {
-            try? PFRedirectManager.install(httpPort: httpPort, httpsPort: httpsPort)
+            do {
+                try PFRedirectManager.install(httpPort: httpPort, httpsPort: httpsPort)
+            } catch {
+                Self.logger.error("Failed to reapply pf redirect: \(String(describing: error), privacy: .public)")
+            }
         }
         if !state.domains.isEmpty {
-            try? HostsFileManager.sync(domains: state.domains)
+            do {
+                try HostsFileManager.sync(domains: state.domains)
+            } catch {
+                Self.logger.error("Failed to reapply hosts: \(String(describing: error), privacy: .public)")
+            }
         }
         if !state.resolverTLDs.isEmpty {
-            try? ResolverManager.sync(
-                tlds: state.resolverTLDs,
-                dnsPort: state.dnsPort ?? HelperConstants.dnsListenPort
-            )
+            do {
+                try ResolverManager.sync(
+                    tlds: state.resolverTLDs,
+                    dnsPort: state.dnsPort ?? HelperConstants.dnsListenPort
+                )
+            } catch {
+                Self.logger.error("Failed to reapply resolvers: \(String(describing: error), privacy: .public)")
+            }
         }
     }
 }

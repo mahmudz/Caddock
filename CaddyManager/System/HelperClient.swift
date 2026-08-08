@@ -73,9 +73,34 @@ final class HelperClient {
     }
 
     private func isRetryableXPCError(_ error: Error) -> Bool {
-        if case HelperClientError.helperFailed(let message) = error {
-            return message.localizedCaseInsensitiveContains("invalidated")
-                || message.localizedCaseInsensitiveContains("interrupted")
+        let message: String
+        if case HelperClientError.helperFailed(let helperMessage) = error {
+            message = helperMessage
+        } else {
+            message = error.localizedDescription
+        }
+
+        let needles = [
+            "invalidated",
+            "interrupted",
+            "couldn’t communicate",
+            "couldn't communicate",
+            "could not communicate",
+            "connection invalid",
+            "not available",
+            "no such process",
+            "unable to connect",
+            "could not create helper proxy",
+            "xpc connection",
+        ]
+        let lowered = message.lowercased()
+        if needles.contains(where: { lowered.contains($0) }) {
+            return true
+        }
+
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain || nsError.domain.contains("NSXPCConnection") {
+            return true
         }
         return false
     }
@@ -89,7 +114,8 @@ final class HelperClient {
             } catch {
                 lastError = error
                 guard attempt < 2, isRetryableXPCError(error) else { throw error }
-                try await Task.sleep(nanoseconds: UInt64(500_000_000 * (attempt + 1)))
+                // 0.5s, 1.5s between attempts
+                try await Task.sleep(nanoseconds: UInt64(500_000_000 * (2 * attempt + 1)))
             }
         }
         throw lastError ?? HelperClientError.helperFailed("Unknown helper error.")
@@ -105,7 +131,7 @@ final class HelperClient {
             } catch {
                 lastError = error
                 guard attempt < 2, isRetryableXPCError(error) else { throw error }
-                try await Task.sleep(nanoseconds: UInt64(500_000_000 * (attempt + 1)))
+                try await Task.sleep(nanoseconds: UInt64(500_000_000 * (2 * attempt + 1)))
             }
         }
         throw lastError ?? HelperClientError.helperFailed("Unknown helper error.")

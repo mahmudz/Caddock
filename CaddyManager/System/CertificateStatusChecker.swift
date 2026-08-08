@@ -15,20 +15,22 @@ enum CertificateStatusChecker {
     }
 
     static func status() -> CertificateTrustStatus {
-        guard FileManager.default.fileExists(atPath: rootCertificateURL.path) else {
-            return .notInstalled
-        }
+        let fileExists = FileManager.default.fileExists(atPath: rootCertificateURL.path)
+        let fileCert = fileExists ? CertificateTrustInstaller.loadCertificate(from: rootCertificateURL) : nil
 
-        guard let certData = try? Data(contentsOf: rootCertificateURL),
-              let certificate = SecCertificateCreateWithData(nil, certData as CFData) else {
-            return .notInstalled
-        }
-
-        if isTrustedInSystemKeychain(certificate) {
+        if let fileCert, hasTrust(fileCert) {
             return .installedAndTrusted
         }
 
-        return .installedNotTrusted
+        if hasAnyTrustedCaddyAuthority() {
+            return fileExists ? .installedNotTrusted : .installedAndTrusted
+        }
+
+        if fileExists {
+            return .installedNotTrusted
+        }
+
+        return .notInstalled
     }
 
     static func openKeychainAccess() {
@@ -40,25 +42,30 @@ enum CertificateStatusChecker {
         NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Utilities/Keychain Access.app"))
     }
 
-    private static func isTrustedInSystemKeychain(_ certificate: SecCertificate) -> Bool {
+    /// Trusted in user or admin (System) trust settings.
+    private static func hasTrust(_ certificate: SecCertificate) -> Bool {
+        hasTrust(certificate, domain: .user) || hasTrust(certificate, domain: .admin)
+    }
+
+    private static func hasTrust(_ certificate: SecCertificate, domain: SecTrustSettingsDomain) -> Bool {
         var trustSettings: CFArray?
-        let status = SecTrustSettingsCopyTrustSettings(certificate, .admin, &trustSettings)
-        if status == errSecSuccess, let trustSettings, CFArrayGetCount(trustSettings) > 0 {
-            return true
-        }
+        let status = SecTrustSettingsCopyTrustSettings(certificate, domain, &trustSettings)
+        guard status == errSecSuccess, let trustSettings else { return false }
+        return CFArrayGetCount(trustSettings) > 0
+    }
 
-        let query: [CFString: Any] = [
-            kSecClass: kSecClassCertificate,
-            kSecMatchLimit: kSecMatchLimitAll,
-            kSecReturnRef: true,
-        ]
-        var result: CFTypeRef?
-        let copyStatus = SecItemCopyMatching(query as CFDictionary, &result)
-        guard copyStatus == errSecSuccess, let items = result as? [SecCertificate] else {
-            return false
+    private static func hasAnyTrustedCaddyAuthority() -> Bool {
+        for domain: SecTrustSettingsDomain in [.user, .admin] {
+            var certArray: CFArray?
+            let status = SecTrustSettingsCopyCertificates(domain, &certArray)
+            guard status == errSecSuccess, let certs = certArray as? [SecCertificate] else { continue }
+            if certs.contains(where: { cert in
+                let summary = SecCertificateCopySubjectSummary(cert) as String? ?? ""
+                return summary.localizedCaseInsensitiveContains("Caddy Local Authority")
+            }) {
+                return true
+            }
         }
-
-        let targetData = SecCertificateCopyData(certificate) as Data
-        return items.contains { SecCertificateCopyData($0) as Data == targetData }
+        return false
     }
 }

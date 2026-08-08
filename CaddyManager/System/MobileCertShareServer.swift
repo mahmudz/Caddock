@@ -2,11 +2,10 @@ import Darwin
 import Foundation
 import Network
 import Observation
-import os
 
 @Observable
 final class MobileCertShareServer {
-    private static let logger = Logger(subsystem: "dev.mahmudz.CaddyManager", category: "MobileCertShare")
+    private static let logger = AppLogger(category: "MobileCertShare")
 
     private(set) var isRunning = false
     private(set) var downloadURL: URL?
@@ -44,7 +43,7 @@ final class MobileCertShareServer {
                     } else if let port = listener.port?.rawValue {
                         self?.downloadURL = URL(string: "http://127.0.0.1:\(port)/CaddyManager-Root-CA.crt")
                     }
-                    Self.logger.info("Mobile cert server ready at \(self?.downloadURL?.absoluteString ?? "?", privacy: .public)")
+                    Self.logger.info("Mobile cert server ready at \(self?.downloadURL?.absoluteString ?? "?")")
                 case .failed(let error):
                     self?.isRunning = false
                     self?.lastError = error.localizedDescription

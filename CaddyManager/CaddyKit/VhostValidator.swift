@@ -33,12 +33,17 @@ enum VhostValidator {
         if let tld = LocalDomainPolicy.tld(of: vhost.domain), LocalDomainPolicy.isBlockedPublicTLD(tld) {
             issues.append(.init(
                 severity: .error,
-                message: "Do not use public TLD \".\(tld)\" for local sites. Prefer .test, .local, .localhost, or .example."
+                message: "Do not use public TLD \".\(tld)\" for local sites. Prefer .test, .localhost, or .example."
+            ))
+        } else if let tld = LocalDomainPolicy.tld(of: vhost.domain), tld == "local" {
+            issues.append(.init(
+                severity: .warning,
+                message: "\".local\" conflicts with Bonjour/mDNS on macOS. Prefer .test for more reliable DNS and HTTPS."
             ))
         } else if let tld = LocalDomainPolicy.tld(of: vhost.domain), !LocalDomainPolicy.isRecommendedTLD(tld) {
             issues.append(.init(
                 severity: .warning,
-                message: "TLD \".\(tld)\" is not a reserved local TLD. Prefer .test, .local, .localhost, or .example."
+                message: "TLD \".\(tld)\" is not a reserved local TLD. Prefer .test, .localhost, or .example."
             ))
         }
 
