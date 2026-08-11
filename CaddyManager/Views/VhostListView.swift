@@ -38,14 +38,10 @@ struct VhostListView: View {
                     List {
                         if filter == .all && searchText.isEmpty {
                             if !enabledVhosts.isEmpty {
-                                Section("Enabled") {
-                                    vhostRows(enabledVhosts)
-                                }
+                                vhostRows(enabledVhosts)
                             }
                             if !disabledVhosts.isEmpty {
-                                Section("Disabled") {
-                                    vhostRows(disabledVhosts)
-                                }
+                                vhostRows(disabledVhosts)
                             }
                         } else {
                             vhostRows(filteredVhosts)
@@ -73,9 +69,6 @@ struct VhostListView: View {
                     }
                 }
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                statusBanner
-            }
         }
         .frame(minWidth: 520, minHeight: 420)
         .confirmationDialog(
@@ -92,43 +85,6 @@ struct VhostListView: View {
             Button("Cancel", role: .cancel) { pendingDeletion = nil }
         } message: {
             Text("This removes it from the Caddyfile and stops serving it. This cannot be undone.")
-        }
-    }
-
-    @ViewBuilder
-    private var statusBanner: some View {
-        if let lastError = vhostStore.lastError {
-            Label(lastError, systemImage: "exclamationmark.triangle.fill")
-                .font(.callout)
-                .foregroundStyle(.red)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.red.opacity(0.08))
-        } else if let helperSyncError = vhostStore.helperSyncError {
-            Label(helperSyncError, systemImage: "exclamationmark.triangle.fill")
-                .font(.callout)
-                .foregroundStyle(.orange)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.orange.opacity(0.08))
-        } else {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                Text(statusText)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(vhostStore.vhosts.filter(\.isEnabled).count) enabled")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(.bar)
         }
     }
 
