@@ -11,6 +11,7 @@ import ServiceManagement
 
 struct GeneralSettingsPane: View {
     @Environment(AppSettings.self) private var settings
+    @Environment(VhostStore.self) private var vhostStore
     @State private var detectedBinary: URL?
     @State private var detectedVersion: String?
 
@@ -37,15 +38,15 @@ struct GeneralSettingsPane: View {
                     .onSubmit(detect)
 
                 if detectedBinary == nil {
-                    Text("brew install caddy")
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
+                    Button("Install Caddy…") {
+                        CaddyOnboardingPresenter.present(settings: settings, vhostStore: vhostStore)
+                    }
                 }
             } footer: {
                 if let binary = detectedBinary {
                     Text(detectedVersion ?? binary.path)
                 } else {
-                    Text("Install Caddy with Homebrew or set a custom path.")
+                    Text("Install via Homebrew, download the official binary, or set a custom path.")
                 }
             }
 

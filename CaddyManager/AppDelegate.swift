@@ -67,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [settings, vhostStore] in
+            CaddyOnboardingPresenter.presentIfNeeded(settings: settings, vhostStore: vhostStore)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

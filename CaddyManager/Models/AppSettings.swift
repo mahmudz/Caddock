@@ -11,12 +11,18 @@ final class AppSettings {
         static let launchAtLogin = "launchAtLogin"
         static let hasTrustedCaddyCA = "hasTrustedCaddyCA"
         static let clearLogsOnRestart = "clearLogsOnRestart"
+        static let hasCompletedCaddyOnboarding = "hasCompletedCaddyOnboarding"
     }
 
     private let defaults: UserDefaults
 
     var caddyBinaryPathOverride: String? {
         didSet { defaults.set(caddyBinaryPathOverride, forKey: Keys.caddyBinaryPathOverride) }
+    }
+
+    /// True after user installs Caddy via onboarding or explicitly skips it.
+    var hasCompletedCaddyOnboarding: Bool {
+        didSet { defaults.set(hasCompletedCaddyOnboarding, forKey: Keys.hasCompletedCaddyOnboarding) }
     }
 
     var httpPort: Int {
@@ -52,5 +58,6 @@ final class AppSettings {
         self.launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
         self.hasTrustedCaddyCA = defaults.bool(forKey: Keys.hasTrustedCaddyCA)
         self.clearLogsOnRestart = defaults.bool(forKey: Keys.clearLogsOnRestart)
+        self.hasCompletedCaddyOnboarding = defaults.bool(forKey: Keys.hasCompletedCaddyOnboarding)
     }
 }

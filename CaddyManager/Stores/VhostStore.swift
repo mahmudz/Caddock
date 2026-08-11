@@ -149,7 +149,7 @@ final class VhostStore {
             try caddyfile.write(to: url, atomically: true, encoding: .utf8)
 
             guard let binary = CaddyInstallation.locateBinary(override: settings.caddyBinaryPathOverride) else {
-                lastError = "Caddy binary not found. Install it with Homebrew: brew install caddy"
+                lastError = "Caddy binary not found. Open Install Caddy… from the menu to set it up."
                 return
             }
 

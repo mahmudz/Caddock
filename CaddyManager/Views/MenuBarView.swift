@@ -185,6 +185,12 @@ struct MenuBarView: View {
                 openSettingsWindow()
             }
 
+            if CaddyInstallation.locateBinary(override: settings.caddyBinaryPathOverride) == nil {
+                MenuActionRow(title: "Install Caddy…", systemImage: "arrow.down.app") {
+                    CaddyOnboardingPresenter.present(settings: settings, vhostStore: vhostStore)
+                }
+            }
+
             Divider()
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)

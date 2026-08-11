@@ -25,6 +25,10 @@ enum CaddyInstallation {
         for path in knownPaths where FileManager.default.isExecutableFile(atPath: path) {
             return URL(fileURLWithPath: path)
         }
+        if let managed = try? CaddyInstaller.managedBinaryURL(),
+           FileManager.default.isExecutableFile(atPath: managed.path) {
+            return managed
+        }
         return locateViaWhich()
     }
 
