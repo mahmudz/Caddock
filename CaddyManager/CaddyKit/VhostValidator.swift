@@ -89,8 +89,8 @@ enum VhostValidator {
             }
             if isBlank(vhost.phpSocketPath) {
                 issues.append(.init(severity: .error, message: "PHP sites require a PHP-FPM socket path."))
-            } else if let socketPath = vhost.phpSocketPath, !FileManager.default.fileExists(atPath: socketPath) {
-                issues.append(.init(severity: .warning, message: "PHP-FPM socket not found on disk yet — it may not be running."))
+            } else if let socketPath = vhost.phpSocketPath, !SocketValidator.isListening(at: socketPath) {
+                issues.append(.init(severity: .warning, message: "PHP-FPM is not accepting connections at this socket — it may not be running."))
             }
             if vhost.proxyTarget != nil {
                 issues.append(.init(severity: .error, message: "PHP sites must not set a proxy target."))
