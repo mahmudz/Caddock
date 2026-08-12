@@ -7,10 +7,7 @@ final class SetupGate {
 
     init(settings: AppSettings) {
         let hasBinary = CaddyInstallation.locateBinary(override: settings.caddyBinaryPathOverride) != nil
-        self.isComplete = hasBinary
-        if hasBinary {
-            settings.hasCompletedCaddyOnboarding = true
-        }
+        self.isComplete = settings.hasCompletedCaddyOnboarding && hasBinary
     }
 
     func markComplete(settings: AppSettings) {

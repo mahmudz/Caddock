@@ -63,6 +63,7 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.settings)
                 .environment(appDelegate.vhostStore)
                 .environment(appDelegate.setupGate)
+                .environment(appDelegate.helperInstaller)
                 .containerBackground(.thinMaterial, for: .window)
         }
         .windowStyle(.hiddenTitleBar)
