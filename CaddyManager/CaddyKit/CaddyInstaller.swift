@@ -84,7 +84,7 @@ enum CaddyInstaller {
         status: (@Sendable (String) -> Void)? = nil
     ) async throws -> URL {
         status?("Looking up latest release…")
-        let (version, downloadURL) = try await latestMacReleaseAsset()
+        let (version, assetID, browserURL) = try await latestMacReleaseAsset()
         let destination = try managedBinaryURL()
 
         let tempDir = FileManager.default.temporaryDirectory
@@ -94,7 +94,7 @@ enum CaddyInstaller {
 
         let archiveURL = tempDir.appendingPathComponent("caddy.tar.gz")
         status?("Downloading Caddy \(version)…")
-        try await download(from: downloadURL, to: archiveURL)
+        try await download(assetID: assetID, browserURL: browserURL, to: archiveURL)
 
         status?("Extracting…")
         let extractedBinary = try extractCaddyBinary(from: archiveURL, into: tempDir)
@@ -147,11 +147,12 @@ enum CaddyInstaller {
         let assets: [Asset]
 
         struct Asset: Decodable {
+            let id: Int
             let name: String
             let browserDownloadURL: URL
 
             enum CodingKeys: String, CodingKey {
-                case name
+                case id, name
                 case browserDownloadURL = "browser_download_url"
             }
         }
@@ -162,15 +163,27 @@ enum CaddyInstaller {
         }
     }
 
-    private static func latestMacReleaseAsset() async throws -> (version: String, url: URL) {
+    private static let downloadSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 600
+        config.waitsForConnectivity = true
+        config.httpAdditionalHeaders = [
+            "User-Agent": "CaddyManager (dev.mahmudz.CaddyManager)",
+        ]
+        return URLSession(configuration: config)
+    }()
+
+    private static func latestMacReleaseAsset() async throws -> (version: String, assetID: Int, browserURL: URL) {
         var request = URLRequest(url: githubLatestReleaseURL)
-        request.setValue("CaddyManager", forHTTPHeaderField: "User-Agent")
+        request.setValue("CaddyManager (dev.mahmudz.CaddyManager)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
 
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await downloadSession.data(for: request)
         } catch {
             throw CaddyInstallerError.releaseLookupFailed(error.localizedDescription)
         }
@@ -194,7 +207,7 @@ enum CaddyInstaller {
         }
 
         let version = release.tagName.hasPrefix("v") ? String(release.tagName.dropFirst()) : release.tagName
-        return (version, asset.browserDownloadURL)
+        return (version, asset.id, asset.browserDownloadURL)
     }
 
     private static func macDownloadArch() -> String {
@@ -210,24 +223,96 @@ enum CaddyInstaller {
 
     // MARK: - Download / extract
 
-    private static func download(from remote: URL, to local: URL) async throws {
-        var request = URLRequest(url: remote)
-        request.setValue("CaddyManager", forHTTPHeaderField: "User-Agent")
+    /// Prefer the releases/assets API (api.github.com) — same host as the metadata call.
+    /// `browser_download_url` hits github.com and is often blocked or flaky from GUI apps.
+    private static func download(assetID: Int, browserURL: URL, to local: URL) async throws {
+        let apiURL = URL(string: "https://api.github.com/repos/caddyserver/caddy/releases/assets/\(assetID)")!
 
+        var apiRequest = URLRequest(url: apiURL)
+        apiRequest.setValue("CaddyManager (dev.mahmudz.CaddyManager)", forHTTPHeaderField: "User-Agent")
+        apiRequest.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+        apiRequest.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+
+        if (try? await download(request: apiRequest, to: local)) != nil {
+            return
+        }
+
+        var browserRequest = URLRequest(url: browserURL)
+        browserRequest.setValue("CaddyManager (dev.mahmudz.CaddyManager)", forHTTPHeaderField: "User-Agent")
+        if (try? await download(request: browserRequest, to: local)) != nil {
+            return
+        }
+
+        // Last resort: curl follows redirects reliably when URLSession cannot.
         do {
-            let (tempURL, response) = try await URLSession.shared.download(for: request)
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-                let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-                throw CaddyInstallerError.downloadFailed("HTTP \(code)")
-            }
-            if FileManager.default.fileExists(atPath: local.path) {
-                try FileManager.default.removeItem(at: local)
-            }
-            try FileManager.default.moveItem(at: tempURL, to: local)
-        } catch let error as CaddyInstallerError {
-            throw error
+            try downloadWithCurl(
+                from: apiURL,
+                to: local,
+                headers: [
+                    "Accept: application/octet-stream",
+                    "X-GitHub-Api-Version: 2022-11-28",
+                ]
+            )
+        } catch {
+            try downloadWithCurl(from: browserURL, to: local, headers: [])
+        }
+    }
+
+    private static func download(request: URLRequest, to local: URL) async throws {
+        let (tempURL, response): (URL, URLResponse)
+        do {
+            (tempURL, response) = try await downloadSession.download(for: request)
         } catch {
             throw CaddyInstallerError.downloadFailed(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            throw CaddyInstallerError.downloadFailed("HTTP \(code)")
+        }
+        if FileManager.default.fileExists(atPath: local.path) {
+            try FileManager.default.removeItem(at: local)
+        }
+        try FileManager.default.moveItem(at: tempURL, to: local)
+    }
+
+    /// Last-resort: `/usr/bin/curl` (often works when URLSession cannot reach github.com).
+    private static func downloadWithCurl(from remote: URL, to local: URL, headers: [String]) throws {
+        if FileManager.default.fileExists(atPath: local.path) {
+            try FileManager.default.removeItem(at: local)
+        }
+
+        var arguments = [
+            "--fail",
+            "--location",
+            "--silent",
+            "--show-error",
+            "--connect-timeout", "30",
+            "--max-time", "600",
+            "--user-agent", "CaddyManager (dev.mahmudz.CaddyManager)",
+            "--output", local.path,
+        ]
+        for header in headers {
+            arguments.append(contentsOf: ["--header", header])
+        }
+        arguments.append(remote.absoluteString)
+
+        do {
+            _ = try runProcessSync(
+                executable: URL(fileURLWithPath: "/usr/bin/curl"),
+                arguments: arguments
+            )
+        } catch let CaddyInstallerError.processFailed(message) {
+            throw CaddyInstallerError.downloadFailed(message)
+        }
+
+        guard FileManager.default.fileExists(atPath: local.path) else {
+            throw CaddyInstallerError.downloadFailed("curl did not write a file.")
+        }
+        let attrs = try FileManager.default.attributesOfItem(atPath: local.path)
+        let size = (attrs[.size] as? NSNumber)?.intValue ?? 0
+        if size < 1_000 {
+            throw CaddyInstallerError.downloadFailed("Downloaded file looks too small (\(size) bytes).")
         }
     }
 
