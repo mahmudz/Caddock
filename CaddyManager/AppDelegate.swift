@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let logger = AppLogger(category: "AppDelegate")
 
     let settings: AppSettings
+    let setupGate: SetupGate
     let processController: CaddyProcessController
     let vhostStore: VhostStore
     let helperInstaller: HelperInstaller
@@ -16,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     override init() {
         let settings = AppSettings()
         self.settings = settings
+        self.setupGate = SetupGate(settings: settings)
         self.processController = CaddyProcessController(settings: settings)
         self.helperInstaller = HelperInstaller()
         self.helperClient = HelperClient()
@@ -34,7 +36,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppLog.bootstrap()
-        NSApp.setActivationPolicy(.accessory)
         syncLoginItemRegistration()
 
         NotificationCenter.default.addObserver(
@@ -50,13 +51,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             helperInstaller: helperInstaller,
             vhosts: { [weak self] in self?.vhostStore.vhosts ?? [] }
         )
-        healthCheckService.start()
 
+        if setupGate.isComplete {
+            enterMenuBarMode(startServices: true)
+        } else {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    /// Call after Caddy is installed during setup. Activates the menu bar app.
+    func finishSetup() {
+        guard !setupGate.isComplete else { return }
+        setupGate.markComplete(settings: settings)
+        enterMenuBarMode(startServices: true)
+    }
+
+    private func enterMenuBarMode(startServices: Bool) {
+        NSApp.setActivationPolicy(.accessory)
+        guard startServices else { return }
+
+        healthCheckService.start()
         Task {
             await vhostStore.regenerateAndReload()
 
-            // After reboot, pf redirects are gone and the helper may not be ready yet.
-            // Retry privileged sync (ping → hosts → resolvers → pf) with backoff.
             if helperInstaller.isEnabled {
                 let ok = await vhostStore.ensurePrivilegedNetworkingOnLaunch()
                 if !ok {
@@ -67,20 +85,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [settings, vhostStore] in
-            CaddyOnboardingPresenter.presentIfNeeded(settings: settings, vhostStore: vhostStore)
-        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        false
+        // Setup mode: closing the setup window quits. Menu bar mode: stay running.
+        !setupGate.isComplete
     }
 
     @objc private func windowWillClose(_ notification: Notification) {
         let closing = notification.object as? NSWindow
-        // Defer: willClose fires before window leaves NSApp.windows / visibility flips.
         DispatchQueue.main.async {
+            guard self.setupGate.isComplete else { return }
             AppWindowPresenter.hideDockIconIfNoWindows(excluding: closing)
         }
     }

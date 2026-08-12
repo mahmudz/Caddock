@@ -12,6 +12,7 @@ import ServiceManagement
 struct GeneralSettingsPane: View {
     @Environment(AppSettings.self) private var settings
     @Environment(VhostStore.self) private var vhostStore
+    @Environment(\.openWindow) private var openWindow
     @State private var detectedBinary: URL?
     @State private var detectedVersion: String?
 
@@ -39,7 +40,9 @@ struct GeneralSettingsPane: View {
 
                 if detectedBinary == nil {
                     Button("Install Caddy…") {
-                        CaddyOnboardingPresenter.present(settings: settings, vhostStore: vhostStore)
+                        CaddyOnboardingPresenter.present {
+                            openWindow(id: CaddyOnboardingPresenter.windowID)
+                        }
                     }
                 }
             } footer: {

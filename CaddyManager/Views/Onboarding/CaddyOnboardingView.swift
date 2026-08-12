@@ -9,97 +9,110 @@ struct CaddyOnboardingView: View {
 
     @Environment(AppSettings.self) private var settings
     @Environment(VhostStore.self) private var vhostStore
+    @Environment(SetupGate.self) private var setupGate
+    @Environment(\.dismissWindow) private var dismissWindow
 
-    var onClose: (() -> Void)?
-
-    @State private var selectedMethod: Method = .homebrew
+    @State private var method: Method = .homebrew
     @State private var brewAvailable = false
     @State private var isBusy = false
-    @State private var statusMessage: String?
-    @State private var errorMessage: String?
+    @State private var statusText: String?
+    @State private var errorText: String?
     @State private var installedVersion: String?
 
     var body: some View {
-        VStack(spacing: 28) {
-            Text("Install Caddy")
-                .font(.title3.weight(.semibold))
+        VStack(spacing: 0) {
+            header
+                .padding(.top, 36)
+                .padding(.bottom, 28)
 
-            HStack(spacing: 14) {
-                methodCard(
-                    method: .homebrew,
+            HStack(spacing: 12) {
+                methodButton(
+                    .homebrew,
                     title: "Homebrew",
-                    subtitle: brewAvailable ? "brew install caddy" : "Homebrew not found",
-                    systemImage: "terminal",
+                    detail: brewAvailable ? "brew install caddy" : "Not installed",
+                    symbol: "terminal",
                     enabled: brewAvailable
                 )
-                methodCard(
-                    method: .download,
+                methodButton(
+                    .download,
                     title: "Download",
-                    subtitle: "Official binary",
-                    systemImage: "arrow.down.circle",
+                    detail: "From GitHub",
+                    symbol: "arrow.down.circle",
                     enabled: true
                 )
             }
+            .padding(.horizontal, 28)
 
-            statusRow
-                .frame(minHeight: 36, alignment: .center)
+            statusArea
+                .padding(.horizontal, 28)
+                .padding(.top, 20)
+                .frame(minHeight: 44)
 
-            HStack(spacing: 12) {
-                Button("Check") {
-                    recheckInstallation()
-                }
-                .disabled(isBusy)
-                .keyboardShortcut("r", modifiers: [.command])
+            Spacer(minLength: 12)
+
+            HStack {
+                Button("Quit", action: quitApp)
+                    .controlSize(.large)
+                    .disabled(isBusy)
+
+                Button("Check", action: check)
+                    .disabled(isBusy)
+                    .controlSize(.large)
+                    .keyboardShortcut("r", modifiers: .command)
 
                 Spacer()
 
-                Button(nextTitle) {
-                    handleNext()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isBusy || (installedVersion == nil && selectedMethod == .homebrew && !brewAvailable))
-                .keyboardShortcut(.defaultAction)
+                Button(primaryTitle, action: primaryAction)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(!canPressPrimary)
+                    .keyboardShortcut(.defaultAction)
             }
+            .padding(.horizontal, 28)
+            .padding(.bottom, 24)
         }
-        .padding(28)
-        .frame(width: 520, height: 300)
-        .background {
-            OnboardingGlassBackground()
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .onAppear {
-            refreshEnvironment()
-            if !brewAvailable {
-                selectedMethod = .download
-            }
-        }
-        .focusable()
-        .onKeyPress(.escape) {
-            settings.hasCompletedCaddyOnboarding = true
-            onClose?()
-            return .handled
-        }
+        .frame(width: 480, height: 380)
+        .onAppear(perform: bootstrap)
     }
 
-    private var nextTitle: String {
-        if installedVersion != nil { return "Next" }
-        return isBusy ? "Installing…" : "Next"
+    private var header: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "server.rack")
+                .font(.system(size: 32, weight: .medium))
+                .foregroundStyle(.secondary)
+                .symbolRenderingMode(.hierarchical)
+
+            Text("Set Up Caddy")
+                .font(.title2.weight(.semibold))
+
+            Text("CaddyManager needs the Caddy server before the menu bar activates.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 12)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var primaryTitle: String {
+        if isBusy { return "Installing…" }
+        if installedVersion != nil { return "Continue" }
+        return "Install"
     }
 
     @ViewBuilder
-    private var statusRow: some View {
+    private var statusArea: some View {
         if isBusy {
             HStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.small)
-                Text(statusMessage ?? "Working…")
+                Text(statusText ?? "Working…")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-        } else if let errorMessage {
-            Text(errorMessage)
+        } else if let errorText {
+            Text(errorText)
                 .font(.callout)
                 .foregroundStyle(.red)
                 .multilineTextAlignment(.center)
@@ -110,164 +123,169 @@ struct CaddyOnboardingView: View {
                 .font(.callout)
                 .foregroundStyle(.green)
                 .lineLimit(2)
-        } else if let statusMessage {
-            Text(statusMessage)
+        } else {
+            Text(statusText ?? " ")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .lineLimit(2)
-        } else {
-            Text("Choose a method, then click Next.")
-                .font(.callout)
-                .foregroundStyle(.tertiary)
+                .opacity(statusText == nil ? 0 : 1)
         }
     }
 
-    private func methodCard(
-        method: Method,
+    private func methodButton(
+        _ value: Method,
         title: String,
-        subtitle: String,
-        systemImage: String,
+        detail: String,
+        symbol: String,
         enabled: Bool
     ) -> some View {
-        let selected = selectedMethod == method
+        let selected = method == value
         return Button {
             guard enabled else { return }
-            selectedMethod = method
+            method = value
         } label: {
-            VStack(spacing: 10) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 28, weight: .regular))
+            VStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 26))
                     .foregroundStyle(selected ? Color.accentColor : .secondary)
-                    .symbolRenderingMode(.hierarchical)
-
                 Text(title)
                     .font(.headline)
-                    .foregroundStyle(enabled ? .primary : .secondary)
-
-                Text(subtitle)
+                Text(detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
             }
-            .frame(maxWidth: .infinity, minHeight: 120)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 108)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(selected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
-        }
+        .background(selected ? Color.accentColor.opacity(0.10) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(
-                    selected ? Color.accentColor.opacity(0.8) : Color.primary.opacity(0.08),
+                    selected ? Color.accentColor : Color.primary.opacity(0.12),
                     lineWidth: selected ? 1.5 : 1
                 )
         }
-        .opacity(enabled ? 1 : 0.45)
+        .opacity(enabled ? 1 : 0.4)
         .disabled(!enabled || isBusy)
     }
 
-    private func refreshEnvironment() {
+    private var canPressPrimary: Bool {
+        guard !isBusy else { return false }
+        if installedVersion != nil { return true }
+        if method == .homebrew { return brewAvailable }
+        return true
+    }
+
+    private func bootstrap() {
         brewAvailable = CaddyInstaller.locateBrew() != nil
+        if !brewAvailable {
+            method = .download
+        }
+        refreshBinary()
+    }
+
+    private func refreshBinary() {
         if let binary = CaddyInstallation.locateBinary(override: settings.caddyBinaryPathOverride) {
-            installedVersion = try? CaddyInstallation.version(of: binary)
+            installedVersion = (try? CaddyInstallation.version(of: binary)) ?? binary.path
         } else {
             installedVersion = nil
         }
     }
 
-    private func handleNext() {
+    private func check() {
+        errorText = nil
+        refreshBinary()
         if installedVersion != nil {
-            settings.hasCompletedCaddyOnboarding = true
-            onClose?()
+            statusText = nil
+        } else {
+            statusText = "Caddy not found yet."
+        }
+    }
+
+    private func primaryAction() {
+        if installedVersion != nil {
+            activateMenuBar()
             return
         }
-
-        switch selectedMethod {
-        case .homebrew:
-            installWithBrew()
-        case .download:
-            installWithDownload()
+        switch method {
+        case .homebrew: startBrewInstall()
+        case .download: startDownload()
         }
     }
 
-    private func installWithBrew() {
-        runInstall {
-            await MainActor.run {
-                statusMessage = "Running brew install caddy…"
-            }
+    private func quitApp() {
+        NSApplication.shared.terminate(nil)
+    }
+
+    private func activateMenuBar() {
+        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else {
+            setupGate.markComplete(settings: settings)
+            dismissWindow(id: CaddyOnboardingPresenter.windowID)
+            return
+        }
+        appDelegate.finishSetup()
+        dismissWindow(id: CaddyOnboardingPresenter.windowID)
+    }
+
+    private func startBrewInstall() {
+        runInstall(status: "Running brew install caddy…") {
             let binary = try await CaddyInstaller.installWithHomebrew()
-            await MainActor.run {
-                settings.caddyBinaryPathOverride = nil
-            }
+            await MainActor.run { settings.caddyBinaryPathOverride = nil }
             return binary
         }
     }
 
-    private func installWithDownload() {
-        runInstall {
+    private func startDownload() {
+        runInstall(status: "Downloading…") {
             let binary = try await CaddyInstaller.downloadOfficialBinary { message in
-                Task { @MainActor in
-                    statusMessage = message
-                }
+                Task { @MainActor in statusText = message }
             }
-            await MainActor.run {
-                settings.caddyBinaryPathOverride = binary.path
-            }
+            await MainActor.run { settings.caddyBinaryPathOverride = binary.path }
             return binary
         }
     }
 
-    private func runInstall(_ work: @escaping @Sendable () async throws -> URL) {
+    private func runInstall(status: String, _ work: @escaping @Sendable () async throws -> URL) {
         isBusy = true
-        errorMessage = nil
+        errorText = nil
         installedVersion = nil
+        statusText = status
         Task {
             do {
                 let binary = try await work()
-                let version = (try? CaddyInstallation.version(of: binary)) ?? binary.path
-                installedVersion = version
-                statusMessage = nil
-                settings.hasCompletedCaddyOnboarding = true
-                await vhostStore.regenerateAndReload()
+                installedVersion = (try? CaddyInstallation.version(of: binary)) ?? binary.path
+                statusText = nil
                 isBusy = false
+                // Successful install → activate menu bar immediately.
+                activateMenuBar()
             } catch {
-                errorMessage = error.localizedDescription
-                statusMessage = nil
+                errorText = error.localizedDescription
+                statusText = nil
                 isBusy = false
             }
         }
     }
-
-    private func recheckInstallation() {
-        errorMessage = nil
-        refreshEnvironment()
-        if let installedVersion {
-            statusMessage = nil
-            settings.hasCompletedCaddyOnboarding = true
-            Task { await vhostStore.regenerateAndReload() }
-        } else {
-            statusMessage = "Caddy not found yet."
-        }
-    }
 }
 
-// MARK: - Glass background
-
-private struct OnboardingGlassBackground: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .underWindowBackground
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.wantsLayer = true
-        return view
-    }
-
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+#if DEBUG
+#Preview {
+    let defaults = UserDefaults(suiteName: "dev.mahmudz.CaddyManager.onboarding-preview")!
+    defaults.removePersistentDomain(forName: "dev.mahmudz.CaddyManager.onboarding-preview")
+    let settings = AppSettings(defaults: defaults)
+    let store = VhostStore(
+        settings: settings,
+        processController: CaddyProcessController(settings: settings),
+        helperInstaller: HelperInstaller(),
+        helperClient: HelperClient(),
+        dnsResponder: LocalDNSResponder()
+    )
+    return CaddyOnboardingView()
+        .environment(settings)
+        .environment(store)
+        .environment(SetupGate(settings: settings))
+        .containerBackground(.thinMaterial, for: .window)
+        .frame(width: 480, height: 340)
 }
+#endif

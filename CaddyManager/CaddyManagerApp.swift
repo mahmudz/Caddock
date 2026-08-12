@@ -5,7 +5,11 @@ struct CaddyManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("CaddyManager", systemImage: menuBarIcon) {
+        MenuBarExtra(
+            "CaddyManager",
+            systemImage: menuBarIcon,
+            isInserted: menuBarInserted
+        ) {
             MenuBarView()
                 .environment(appDelegate.settings)
                 .environment(appDelegate.processController)
@@ -54,6 +58,18 @@ struct CaddyManagerApp: App {
         .defaultPosition(.center)
         .windowResizability(.contentSize)
 
+        WindowGroup("Setup", id: "onboarding") {
+            CaddyOnboardingView()
+                .environment(appDelegate.settings)
+                .environment(appDelegate.vhostStore)
+                .environment(appDelegate.setupGate)
+                .containerBackground(.thinMaterial, for: .window)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .defaultLaunchBehavior(appDelegate.setupGate.isComplete ? .suppressed : .presented)
+
         Settings {
             SettingsView()
                 .environment(appDelegate.settings)
@@ -61,6 +77,17 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.helperInstaller)
                 .environment(appDelegate.vhostStore)
         }
+    }
+
+    private var menuBarInserted: Binding<Bool> {
+        Binding(
+            get: { appDelegate.setupGate.isComplete },
+            set: { newValue in
+                if newValue {
+                    appDelegate.setupGate.markComplete(settings: appDelegate.settings)
+                }
+            }
+        )
     }
 
     private var menuBarIcon: String {

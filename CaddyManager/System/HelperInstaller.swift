@@ -62,7 +62,7 @@ final class HelperInstaller {
         try? await Task.sleep(nanoseconds: 500_000_000)
 
         do {
-            try await service.register()
+            try service.register()
             refreshStatus()
         } catch {
             state = .failed(error.localizedDescription)

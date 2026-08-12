@@ -119,6 +119,7 @@ enum AppWindowPresenter {
         case "vhost-editor": return "Vhost"
         case "docker-compose": return "Docker Compose"
         case "site-logs": return "Site Logs"
+        case "onboarding": return "Install Caddy"
         default: return id.capitalized
         }
     }
