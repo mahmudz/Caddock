@@ -50,18 +50,7 @@ struct CaddyOnboardingView: View {
 
             Spacer(minLength: 12)
 
-            HStack {
-                Button("Quit", action: quitApp)
-                    .controlSize(.large)
-                    .disabled(isBusy)
-
-                Button("Check", action: check)
-                    .disabled(isBusy)
-                    .controlSize(.large)
-                    .keyboardShortcut("r", modifiers: .command)
-
-                Spacer()
-
+            HStack(alignment: .center) {
                 Button(primaryTitle, action: primaryAction)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
