@@ -86,6 +86,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     )
                 }
             }
+            
+            healthCheckService.checkAll()
         }
     }
 
