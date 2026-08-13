@@ -1,37 +1,54 @@
 import SwiftUI
 
 struct VhostEditorView: View {
+    private enum EditorTab: Hashable {
+        case general
+        case advanced
+    }
+
     @Environment(VhostStore.self) private var vhostStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var vhost: Vhost
     @State private var issues: [VhostValidationIssue] = []
+    @State private var selectedTab: EditorTab
     private let isNew: Bool
 
     init(vhost: Vhost, isNew: Bool) {
         _vhost = State(initialValue: vhost)
         self.isNew = isNew
+        _selectedTab = State(
+            initialValue: isNew || !Self.hasNonDefaultAdvancedSettings(vhost) ? .general : .advanced
+        )
     }
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
                 validationBanner
 
-                Form {
-                    domainSection
-                    kindSpecificSection
-                    serverOptionsSection
-                    proxyOptionsSection
-                    logSourceSection
-                    generalSection
+                TabView(selection: $selectedTab) {
+                    Tab("General", systemImage: "slider.horizontal.3", value: .general) {
+                        Form {
+                            domainSection
+                            kindSpecificSection
+                            generalSection
+                        }
+                        .formStyle(.grouped)
+                    }
+                    Tab("Advanced", systemImage: "gearshape.2", value: .advanced) {
+                        Form {
+                            serverOptionsSection
+                            proxyOptionsSection
+                            logSourceSection
+                        }
+                        .formStyle(.grouped)
+                    }
                 }
-                .formStyle(.grouped)
+                .tabViewStyle(.tabBarOnly)
             }
-            .padding(.top, issues.isEmpty ? 0 : 4)
         }
-        .frame(minWidth: 480, minHeight: 520)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 500)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
@@ -90,6 +107,17 @@ struct VhostEditorView: View {
                 Label("Reverse Proxy", systemImage: vhost.kind.systemImage)
             } footer: {
                 Text("Forwards requests to a local process, e.g. 127.0.0.1:3000.")
+            }
+        }
+    }
+
+    private var generalSection: some View {
+        Section {
+            Toggle(isOn: $vhost.sslEnabled) {
+                Label("SSL enabled", systemImage: "lock")
+            }
+            Toggle(isOn: $vhost.isEnabled) {
+                Label("Enabled", systemImage: "power")
             }
         }
     }
@@ -166,17 +194,6 @@ struct VhostEditorView: View {
         }
     }
 
-    private var generalSection: some View {
-        Section {
-            Toggle(isOn: $vhost.sslEnabled) {
-                Label("SSL enabled", systemImage: "lock")
-            }
-            Toggle(isOn: $vhost.isEnabled) {
-                Label("Enabled", systemImage: "power")
-            }
-        }
-    }
-
     @ViewBuilder
     private var validationBanner: some View {
         if !issues.isEmpty {
@@ -194,6 +211,7 @@ struct VhostEditorView: View {
             .padding(12)
             .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
             .padding(.horizontal, 12)
+            .padding(.top, 8)
         }
     }
 
@@ -261,6 +279,28 @@ struct VhostEditorView: View {
         )
     }
 
+    private static func hasNonDefaultAdvancedSettings(_ vhost: Vhost) -> Bool {
+        if vhost.logSource.isConfigured { return true }
+        if let indexFiles = vhost.indexFiles, !indexFiles.trimmingCharacters(in: .whitespaces).isEmpty {
+            return true
+        }
+        switch vhost.kind {
+        case .staticSite, .phpSite:
+            return vhost.compressionEnabled == false
+        case .reverseProxy:
+            return vhost.websocketEnabled == false
+                || vhost.preserveHostHeader
+                || vhost.forwardProxyHeaders == false
+        }
+    }
+
+    private static func isAdvancedIssue(_ issue: VhostValidationIssue) -> Bool {
+        let message = issue.message.lowercased()
+        return message.contains("index files")
+            || message.contains("gzip")
+            || message.contains("log")
+    }
+
     private func normalizeFieldsForKind() {
         switch vhost.kind {
         case .staticSite:
@@ -286,6 +326,9 @@ struct VhostEditorView: View {
         vhost.domain = vhost.domain.trimmingCharacters(in: .whitespaces).lowercased()
         let result = isNew ? vhostStore.add(vhost) : vhostStore.update(vhost)
         issues = result
+        if result.contains(where: { $0.severity == .error && Self.isAdvancedIssue($0) }) {
+            selectedTab = .advanced
+        }
         if !result.contains(where: { $0.severity == .error }) {
             dismiss()
         }
