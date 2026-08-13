@@ -12,7 +12,5 @@ import Foundation
     func syncResolvers(tlds: [String], dnsPort: Int, reply: @escaping (Bool, String?) -> Void)
     func removeResolvers(reply: @escaping (Bool, String?) -> Void)
 
-    func trustCaddyRootCertificate(caddyBinaryPath: String, callingUserHome: String, reply: @escaping (Bool, String?) -> Void)
-
     func uninstallAll(reply: @escaping (Bool, String?) -> Void)
 }

@@ -12,7 +12,6 @@ enum PFRedirectError: Error, CustomStringConvertible {
     }
 }
 
-/// Strip the boilerplate macOS warning that always accompanies `pfctl -f` / `-nf`.
 private func sanitizedPFCTLOutput(_ output: String) -> String {
     output
         .components(separatedBy: "\n")
@@ -36,8 +35,6 @@ enum PFRedirectManager {
     private static let anchorFilePath = "/etc/pf.anchors/\(HelperConstants.pfAnchorName)"
     private static let anchorName = HelperConstants.pfAnchorName
 
-    // Separate markers so rdr-anchor stays in the translation section and
-    // optional load stays at end of file (never between Apple's anchors).
     private static let rdrMarkerBegin = "# BEGIN CaddyManager pf rdr"
     private static let rdrMarkerEnd = "# END CaddyManager pf rdr"
     private static let loadMarkerBegin = "# BEGIN CaddyManager pf load"
@@ -54,14 +51,11 @@ enum PFRedirectManager {
     }
 
     static func remove() throws {
-        // Flush our anchor first so rules disappear even if pf.conf edit fails.
         _ = try? ProcessRunner.run("/sbin/pfctl", ["-a", anchorName, "-F", "all"])
         try removePFConfPatches()
         try? FileManager.default.removeItem(atPath: anchorFilePath)
         try reloadMainRuleset()
     }
-
-    // MARK: - Anchor file
 
     private static func writeAnchorFile(httpPort: Int, httpsPort: Int) throws {
         let contents = """
@@ -73,7 +67,6 @@ enum PFRedirectManager {
     }
 
     private static func loadAnchorRules() throws {
-        // Validate anchor rules in isolation under the named anchor, then load.
         let dryRun = try ProcessRunner.run("/sbin/pfctl", ["-a", anchorName, "-nf", anchorFilePath])
         guard dryRun.exitCode == 0 else {
             throw PFRedirectError.dryRunFailed(dryRun.output)
@@ -85,10 +78,6 @@ enum PFRedirectManager {
         }
     }
 
-    // MARK: - pf.conf patching
-
-    /// Ensures `rdr-anchor "…"` sits with Apple's translation anchors.
-    /// Returns true if /etc/pf.conf was modified.
     @discardableResult
     private static func ensurePFConfAnchorPoint() throws -> Bool {
         let originalContents = (try? String(contentsOfFile: pfConfPath, encoding: .utf8)) ?? ""
@@ -98,7 +87,6 @@ enum PFRedirectManager {
         }
 
         var lines = originalContents.components(separatedBy: "\n")
-        // Remove any prior CaddyManager blocks (old combined format + new split format).
         removeMarkerBlock(from: &lines, begin: HelperConstants.pfMarkerBegin, end: HelperConstants.pfMarkerEnd)
         removeMarkerBlock(from: &lines, begin: rdrMarkerBegin, end: rdrMarkerEnd)
         removeMarkerBlock(from: &lines, begin: loadMarkerBegin, end: loadMarkerEnd)
@@ -109,7 +97,6 @@ enum PFRedirectManager {
             rdrMarkerEnd,
         ]
 
-        // Place immediately after Apple's rdr-anchor so we stay in the translation section.
         if let appleRdr = lines.firstIndex(where: {
             $0.trimmingCharacters(in: .whitespaces) == "rdr-anchor \"com.apple/*\""
         }) {
@@ -121,15 +108,10 @@ enum PFRedirectManager {
         } else if let appleAnchor = lines.firstIndex(where: {
             $0.trimmingCharacters(in: .whitespaces) == "anchor \"com.apple/*\""
         }) {
-            // Fallback: before filter anchors.
             lines.insert(contentsOf: rdrBlock, at: appleAnchor)
         } else {
             lines.append(contentsOf: rdrBlock)
         }
-
-        // Do NOT put `load anchor` in pf.conf — populate via `pfctl -a … -f` instead.
-        // That avoids "load" sitting between translation and filter sections (syntax error
-        // on modern macOS) and lets port changes reload only our anchor.
 
         let newContents = lines.joined(separator: "\n")
         if newContents == originalContents {
@@ -166,8 +148,6 @@ enum PFRedirectManager {
             lines.removeSubrange(beginIndex...endIndex)
         }
     }
-
-    // MARK: - pfctl helpers
 
     private static func reloadMainRuleset() throws {
         let load = try ProcessRunner.run("/sbin/pfctl", ["-f", pfConfPath])

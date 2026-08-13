@@ -1,0 +1,193 @@
+import AppKit
+import ServiceManagement
+import SwiftUI
+
+struct HelperSettingsPane: View {
+    @Environment(AppSettings.self) private var settings
+    @Environment(HelperInstaller.self) private var helperInstaller
+    @Environment(VhostStore.self) private var vhostStore
+    @State private var helperClient = HelperClient()
+    @State private var helperActionError: String?
+    @State private var showApprovalAlert = false
+    @State private var isWorking = false
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent {
+                    HStack(spacing: 8) {
+                        helperActionButton
+                        if showsReinstallButton {
+                            Button("Reinstall", action: reinstallHelper)
+                                .controlSize(.small)
+                                .disabled(isWorking)
+                        }
+                    }
+                } label: {
+                    Label("Privileged Helper", systemImage: "lock.shield")
+                }
+            } footer: {
+                Text(helperStatusText)
+            }
+
+            Section {
+                Text("Installs pf redirect rules (80→\(settings.httpPort), 443→\(settings.httpsPort)) and keeps /etc/hosts in sync with your enabled vhosts. Use the Certificates tab to install Caddy's Root CA.")
+            }
+
+            if let helperActionError {
+                Section {
+                    Label(helperActionError, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    if showsReinstallSuggestion {
+                        Text("After rebuilding from Xcode, use Reinstall to replace the stale helper daemon.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if !helperInstaller.isEnabled {
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("127.0.0.1  myproject.test")
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                        Text("Then visit https://myproject.test:\(settings.httpsPort)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Label("Manual Domains", systemImage: "list.bullet.rectangle")
+                }
+            }
+        }
+        .settingsFormStyle()
+        .onAppear {
+            helperInstaller.refreshStatus()
+            if helperInstaller.state == .requiresApproval {
+                showApprovalAlert = true
+            }
+        }
+        .onChange(of: helperInstaller.state) { oldState, newState in
+            if newState == .requiresApproval, oldState != .requiresApproval {
+                showApprovalAlert = true
+            }
+            if newState == .enabled, oldState == .requiresApproval {
+                Task { await finishHelperSetup() }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            helperInstaller.refreshStatus()
+        }
+        .alert("Enable Privileged Helper", isPresented: $showApprovalAlert) {
+            Button("Open Login Items Settings") {
+                SMAppService.openSystemSettingsLoginItems()
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text("macOS needs you to allow CaddyManager as a background item.\n\nSystem Settings → General → Login Items & Extensions → Background Items → turn on CaddyManager.")
+        }
+    }
+
+    private var showsReinstallButton: Bool {
+        switch helperInstaller.state {
+        case .enabled, .failed, .requiresApproval:
+            return true
+        case .notRegistered, .notFound:
+            return false
+        }
+    }
+
+    private var showsReinstallSuggestion: Bool {
+        guard let helperActionError else { return false }
+        return helperActionError.localizedCaseInsensitiveContains("invalidated")
+            || helperActionError.localizedCaseInsensitiveContains("interrupted")
+    }
+
+    @ViewBuilder
+    private var helperActionButton: some View {
+        switch helperInstaller.state {
+        case .enabled:
+            Button("Disable", role: .destructive, action: disableHelper)
+                .controlSize(.small)
+                .disabled(isWorking)
+        case .requiresApproval:
+            Button("Check Again", action: checkAgain)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        default:
+            Button("Enable", action: enableHelper)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(isWorking)
+        }
+    }
+
+    private var helperStatusText: String {
+        switch helperInstaller.state {
+        case .notRegistered: return "Not enabled."
+        case .enabled: return "Enabled."
+        case .requiresApproval: return "Waiting for approval in System Settings. Press Check Again after enabling CaddyManager in Background Items."
+        case .notFound: return "Not found. Rebuild the app."
+        case .failed(let message): return "Failed: \(message)"
+        }
+    }
+
+    private func enableHelper() {
+        helperActionError = nil
+        helperInstaller.register()
+        if helperInstaller.state == .requiresApproval {
+            showApprovalAlert = true
+            return
+        }
+        guard helperInstaller.isEnabled else { return }
+        Task { await finishHelperSetup() }
+    }
+
+    private func checkAgain() {
+        helperInstaller.refreshStatus()
+        if helperInstaller.isEnabled {
+            Task { await finishHelperSetup() }
+        } else if helperInstaller.state == .requiresApproval {
+            showApprovalAlert = true
+        }
+    }
+
+    private func disableHelper() {
+        Task {
+            isWorking = true
+            defer { isWorking = false }
+            helperActionError = nil
+            try? await helperClient.uninstallAll()
+            helperInstaller.unregister()
+        }
+    }
+
+    private func reinstallHelper() {
+        Task {
+            isWorking = true
+            defer { isWorking = false }
+            helperActionError = nil
+
+            if helperInstaller.isEnabled {
+                try? await helperClient.uninstallAll()
+            }
+
+            await helperInstaller.reinstall()
+
+            if helperInstaller.state == .requiresApproval {
+                showApprovalAlert = true
+                return
+            }
+
+            guard helperInstaller.isEnabled else { return }
+            await finishHelperSetup()
+        }
+    }
+
+    private func finishHelperSetup() async {
+        _ = await vhostStore.syncPrivilegedNetworking()
+        await vhostStore.regenerateAndReload()
+        helperActionError = vhostStore.helperSyncError
+    }
+}

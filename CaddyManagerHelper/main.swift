@@ -5,8 +5,8 @@ let listener = NSXPCListener(machServiceName: HelperConstants.machServiceName)
 listener.delegate = delegate
 listener.resume()
 
-// Do not block before the run loop — otherwise the first XPC accept is delayed/raced
-// while pfctl/hosts reapply runs, and clients see "XPC connection invalidated".
+// Listen first, then reapply persisted pf/hosts/resolvers so reboot recovery
+// cannot delay the first XPC accept.
 DispatchQueue.main.async {
     HelperTool().reapplyPersistedStateIfNeeded()
 }

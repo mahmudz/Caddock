@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		519439B330136D3200601B58 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 519439B230136D3200601B58 /* README.md */; };
 		CDCD00000000000000000005 /* CaddyManagerHelper in Embed Helper Tool */ = {isa = PBXBuildFile; fileRef = CDCD00000000000000000001 /* CaddyManagerHelper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		CDCD00000000000000000006 /* LaunchDaemonPlist/dev.mahmudz.CaddyManager.Helper.plist in Copy LaunchDaemon Plist */ = {isa = PBXBuildFile; fileRef = CDCD00000000000000000002 /* LaunchDaemonPlist/dev.mahmudz.CaddyManager.Helper.plist */; };
 /* End PBXBuildFile section */
@@ -19,6 +18,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = CDCD0000000000000000000B;
 			remoteInfo = CaddyManagerHelper;
+		};
+		CDCD00000000000000000029 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5117FEBF30133BB90076EF17 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5117FEC630133BB90076EF17;
+			remoteInfo = CaddyManager;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -49,9 +55,9 @@
 
 /* Begin PBXFileReference section */
 		5117FEC730133BB90076EF17 /* CaddyManager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CaddyManager.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		519439B230136D3200601B58 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		CDCD00000000000000000001 /* CaddyManagerHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CaddyManagerHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		CDCD00000000000000000002 /* LaunchDaemonPlist/dev.mahmudz.CaddyManager.Helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = LaunchDaemonPlist/dev.mahmudz.CaddyManager.Helper.plist; sourceTree = "<group>"; };
+		CDCD00000000000000000020 /* CaddyManagerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CaddyManagerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -68,6 +74,11 @@
 		CDCD00000000000000000004 /* CaddyManagerHelper */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = CaddyManagerHelper;
+			sourceTree = "<group>";
+		};
+		CDCD00000000000000000021 /* CaddyManagerTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = CaddyManagerTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -87,17 +98,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CDCD00000000000000000027 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		5117FEBE30133BB90076EF17 = {
 			isa = PBXGroup;
 			children = (
-				519439B230136D3200601B58 /* README.md */,
 				CDCD00000000000000000002 /* LaunchDaemonPlist/dev.mahmudz.CaddyManager.Helper.plist */,
 				5117FEC930133BB90076EF17 /* CaddyManager */,
 				CDCD00000000000000000003 /* Shared */,
 				CDCD00000000000000000004 /* CaddyManagerHelper */,
+				CDCD00000000000000000021 /* CaddyManagerTests */,
 				5117FEC830133BB90076EF17 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -107,6 +125,7 @@
 			children = (
 				5117FEC730133BB90076EF17 /* CaddyManager.app */,
 				CDCD00000000000000000001 /* CaddyManagerHelper */,
+				CDCD00000000000000000020 /* CaddyManagerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -162,6 +181,29 @@
 			productReference = CDCD00000000000000000001 /* CaddyManagerHelper */;
 			productType = "com.apple.product-type.tool";
 		};
+		CDCD00000000000000000022 /* CaddyManagerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CDCD00000000000000000025 /* Build configuration list for PBXNativeTarget "CaddyManagerTests" */;
+			buildPhases = (
+				CDCD00000000000000000026 /* Sources */,
+				CDCD00000000000000000027 /* Frameworks */,
+				CDCD00000000000000000028 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CDCD0000000000000000002A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CDCD00000000000000000021 /* CaddyManagerTests */,
+			);
+			name = CaddyManagerTests;
+			packageProductDependencies = (
+			);
+			productName = CaddyManagerTests;
+			productReference = CDCD00000000000000000020 /* CaddyManagerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -177,6 +219,10 @@
 					};
 					CDCD0000000000000000000B = {
 						CreatedOnToolsVersion = 26.4.1;
+					};
+					CDCD00000000000000000022 = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = 5117FEC630133BB90076EF17;
 					};
 				};
 			};
@@ -196,6 +242,7 @@
 			targets = (
 				5117FEC630133BB90076EF17 /* CaddyManager */,
 				CDCD0000000000000000000B /* CaddyManagerHelper */,
+				CDCD00000000000000000022 /* CaddyManagerTests */,
 			);
 		};
 /* End PBXProject section */
@@ -205,7 +252,13 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				519439B330136D3200601B58 /* README.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CDCD00000000000000000028 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -226,6 +279,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CDCD00000000000000000026 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -233,6 +293,11 @@
 			isa = PBXTargetDependency;
 			target = CDCD0000000000000000000B /* CaddyManagerHelper */;
 			targetProxy = CDCD0000000000000000000F /* PBXContainerItemProxy */;
+		};
+		CDCD0000000000000000002A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5117FEC630133BB90076EF17 /* CaddyManager */;
+			targetProxy = CDCD00000000000000000029 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -290,7 +355,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -347,7 +412,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.4;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -376,7 +441,7 @@
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -384,6 +449,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.mahmudz.CaddyManager;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -425,7 +491,7 @@
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -433,6 +499,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.mahmudz.CaddyManager;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -461,6 +528,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = SP792GFSPZ;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
@@ -469,6 +537,7 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.mahmudz.CaddyManager.Helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -492,6 +561,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = SP792GFSPZ;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
@@ -500,6 +570,7 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.mahmudz.CaddyManager.Helper;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -512,6 +583,46 @@
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CDCD00000000000000000023 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SP792GFSPZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.mahmudz.CaddyManagerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CaddyManager.app/Contents/MacOS/CaddyManager";
+			};
+			name = Debug;
+		};
+		CDCD00000000000000000024 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SP792GFSPZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.mahmudz.CaddyManagerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CaddyManager.app/Contents/MacOS/CaddyManager";
 			};
 			name = Release;
 		};
@@ -541,6 +652,15 @@
 			buildConfigurations = (
 				CDCD0000000000000000000D /* Debug */,
 				CDCD0000000000000000000E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CDCD00000000000000000025 /* Build configuration list for PBXNativeTarget "CaddyManagerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CDCD00000000000000000023 /* Debug */,
+				CDCD00000000000000000024 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -2,7 +2,7 @@ import Foundation
 import os
 
 final class HelperTool: NSObject, HelperProtocol {
-    private static let logger = Logger(subsystem: "dev.mahmudz.CaddyManager.Helper", category: "HelperTool")
+    private static let logger = Logger(subsystem: HelperConstants.helperBundleIdentifier, category: "HelperTool")
 
     func getVersion(reply: @escaping (String) -> Void) {
         reply("1")
@@ -11,10 +11,10 @@ final class HelperTool: NSObject, HelperProtocol {
     func installPFRedirect(httpPort: Int, httpsPort: Int, reply: @escaping (Bool, String?) -> Void) {
         do {
             try PFRedirectManager.install(httpPort: httpPort, httpsPort: httpsPort)
-            var state = HelperState.load()
+            var state = HelperStateStore.load()
             state.httpPort = httpPort
             state.httpsPort = httpsPort
-            state.save()
+            HelperStateStore.save(state)
             reply(true, nil)
         } catch {
             reply(false, String(describing: error))
@@ -24,10 +24,10 @@ final class HelperTool: NSObject, HelperProtocol {
     func removePFRedirect(reply: @escaping (Bool, String?) -> Void) {
         do {
             try PFRedirectManager.remove()
-            var state = HelperState.load()
+            var state = HelperStateStore.load()
             state.httpPort = nil
             state.httpsPort = nil
-            state.save()
+            HelperStateStore.save(state)
             reply(true, nil)
         } catch {
             reply(false, String(describing: error))
@@ -35,12 +35,11 @@ final class HelperTool: NSObject, HelperProtocol {
     }
 
     func syncHosts(domains: [String], reply: @escaping (Bool, String?) -> Void) {
-        
         do {
             try HostsFileManager.sync(domains: domains)
-            var state = HelperState.load()
+            var state = HelperStateStore.load()
             state.domains = domains
-            state.save()
+            HelperStateStore.save(state)
             reply(true, nil)
         } catch {
             reply(false, String(describing: error))
@@ -50,9 +49,9 @@ final class HelperTool: NSObject, HelperProtocol {
     func removeHosts(reply: @escaping (Bool, String?) -> Void) {
         do {
             try HostsFileManager.removeAll()
-            var state = HelperState.load()
+            var state = HelperStateStore.load()
             state.domains = []
-            state.save()
+            HelperStateStore.save(state)
             reply(true, nil)
         } catch {
             reply(false, String(describing: error))
@@ -62,10 +61,10 @@ final class HelperTool: NSObject, HelperProtocol {
     func syncResolvers(tlds: [String], dnsPort: Int, reply: @escaping (Bool, String?) -> Void) {
         do {
             try ResolverManager.sync(tlds: tlds, dnsPort: dnsPort)
-            var state = HelperState.load()
+            var state = HelperStateStore.load()
             state.resolverTLDs = tlds
             state.dnsPort = dnsPort
-            state.save()
+            HelperStateStore.save(state)
             reply(true, nil)
         } catch {
             reply(false, String(describing: error))
@@ -75,19 +74,10 @@ final class HelperTool: NSObject, HelperProtocol {
     func removeResolvers(reply: @escaping (Bool, String?) -> Void) {
         do {
             try ResolverManager.removeAll()
-            var state = HelperState.load()
+            var state = HelperStateStore.load()
             state.resolverTLDs = []
             state.dnsPort = nil
-            state.save()
-            reply(true, nil)
-        } catch {
-            reply(false, String(describing: error))
-        }
-    }
-
-    func trustCaddyRootCertificate(caddyBinaryPath: String, callingUserHome: String, reply: @escaping (Bool, String?) -> Void) {
-        do {
-            try CaddyTrustRunner.trust(caddyBinaryPath: caddyBinaryPath, callingUserHome: callingUserHome)
+            HelperStateStore.save(state)
             reply(true, nil)
         } catch {
             reply(false, String(describing: error))
@@ -104,7 +94,7 @@ final class HelperTool: NSObject, HelperProtocol {
     }
 
     func reapplyPersistedStateIfNeeded() {
-        let state = HelperState.load()
+        let state = HelperStateStore.load()
         if let httpPort = state.httpPort, let httpsPort = state.httpsPort {
             do {
                 try PFRedirectManager.install(httpPort: httpPort, httpsPort: httpsPort)

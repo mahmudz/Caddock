@@ -3,9 +3,8 @@ import os
 import Security
 
 final class HelperListenerDelegate: NSObject, NSXPCListenerDelegate {
-    private static let logger = Logger(subsystem: "dev.mahmudz.CaddyManager.Helper", category: "XPC")
+    private static let logger = Logger(subsystem: HelperConstants.helperBundleIdentifier, category: "XPC")
 
-    /// Retained for the lifetime of the daemon so XPC does not export a dangling object.
     private let tool = HelperTool()
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
@@ -22,17 +21,19 @@ final class HelperListenerDelegate: NSObject, NSXPCListenerDelegate {
         return true
     }
 
-    /// Accepts connections from any process signed with the main app's bundle identifier. This
-    /// project has no Developer ID identity yet, so local/Automatic builds use Apple Development
-    /// signing — an overly strict "anchor apple generic + Developer ID" clause would reject
-    /// valid debug builds.
+    /// Require the peer to be signed as the main app. Team ID is required when present
+    /// so random binaries with a colliding identifier are rejected; Apple Development
+    /// and Developer ID from the same team both satisfy `certificate leaf[subject.OU]`.
     private static func isConnectionFromMainApp(_ connection: NSXPCConnection) -> Bool {
         guard let code = copyGuestCode(for: connection) else {
             return false
         }
 
+        let requirementString = """
+        identifier "\(HelperConstants.appBundleIdentifier)" and certificate leaf[subject.OU] = "\(HelperConstants.teamID)"
+        """ as CFString
+
         var requirement: SecRequirement?
-        let requirementString = "identifier \"dev.mahmudz.CaddyManager\"" as CFString
         let reqStatus = SecRequirementCreateWithString(requirementString, [], &requirement)
         guard reqStatus == errSecSuccess, let requirement else {
             logger.error("SecRequirementCreateWithString failed: \(reqStatus, privacy: .public)")
@@ -50,7 +51,6 @@ final class HelperListenerDelegate: NSObject, NSXPCListenerDelegate {
     private static func copyGuestCode(for connection: NSXPCConnection) -> SecCode? {
         var code: SecCode?
 
-        // Prefer audit token via KVC — property exists in ObjC but is often absent from the Swift overlay.
         if let tokenData = auditTokenData(from: connection) {
             let attributes = [kSecGuestAttributeAudit: tokenData] as CFDictionary
             let status = SecCodeCopyGuestWithAttributes(nil, attributes, [], &code)
