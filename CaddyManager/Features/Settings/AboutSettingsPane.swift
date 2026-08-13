@@ -26,14 +26,22 @@ struct AboutSettingsPane: View {
                 if let copyright {
                     LabeledContent("Copyright", value: copyright)
                 }
+                LabeledContent("Repository") {
+                    Link("mahmudz/CaddyManager", destination: Self.repositoryURL)
+                }
+                LabeledContent("Author") {
+                    Link("mahmudz", destination: Self.authorURL)
+                }
             }
 
             Section {
-                Link(destination: URL(string: "https://caddyserver.com")!) {
-                    Label("Caddy Web Server", systemImage: "link")
+                LabeledContent("Caddy") {
+                    Link("caddyserver.com", destination: Self.caddyURL)
                 }
+            } header: {
+                Text("Credits")
             } footer: {
-                Text("Manages a single local Caddy instance for development vhosts.")
+                Text("Caddy serves every vhost. Not affiliated with official caddy project.")
             }
         }
         .settingsFormStyle()
@@ -54,4 +62,9 @@ struct AboutSettingsPane: View {
     private var copyright: String? {
         Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String
     }
+
+    private static let repositoryURL = URL(string: "https://github.com/mahmudz/CaddyManager")!
+    private static let authorURL = URL(string: "https://github.com/mahmudz")!
+    private static let caddyURL = URL(string: "https://caddyserver.com")!
+    private static let valetURL = URL(string: "https://github.com/laravel/valet")!
 }
