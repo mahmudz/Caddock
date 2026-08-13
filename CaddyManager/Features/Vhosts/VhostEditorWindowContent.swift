@@ -11,6 +11,8 @@ struct VhostEditorWindowContent: View {
                     .environment(vhostStore)
                     .navigationTitle(route.windowTitle)
                     .id(route.id)
+            } else {
+                Color.clear.frame(minWidth: 480, minHeight: 1)
             }
         }
         .fixedSize(horizontal: false, vertical: true)

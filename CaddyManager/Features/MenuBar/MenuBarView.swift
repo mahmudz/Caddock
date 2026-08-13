@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct MenuBarView: View {
     @Environment(AppSettings.self) private var settings
@@ -13,7 +12,6 @@ struct MenuBarView: View {
     @Environment(\.openSettings) private var openSettings
 
     @State private var searchText = ""
-    @State private var importExportMessage: String?
 
     private let menuWidth: CGFloat = 300
     private let visibleVhostLimit = 5
@@ -70,13 +68,6 @@ struct MenuBarView: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .lineLimit(3)
-            }
-
-            if let importExportMessage {
-                Text(importExportMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
             }
         }
         .padding(.horizontal, 14)
@@ -142,30 +133,9 @@ struct MenuBarView: View {
 
     private var footerActions: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 4) {
-                Button { exportVhosts() } label: {
-                    Image(systemName: "square.and.arrow.up")
-                }
-                .buttonStyle(.borderless)
-                .help("Export vhosts")
-
-                Button { importVhosts() } label: {
-                    Image(systemName: "square.and.arrow.down")
-                }
-                .buttonStyle(.borderless)
-                .help("Import vhosts")
-
-                Button { openAppWindow(id: "docker-compose") } label: {
-                    Image(systemName: "shippingbox")
-                }
-                .buttonStyle(.borderless)
-                .help("Docker Compose certificate injection")
-
-                Spacer()
+            MenuActionRow(title: "Docker Compose Injector", systemImage: "shippingbox") {
+                openAppWindow(id: "docker-compose")
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 4)
-
             MenuActionRow(title: "Logs", systemImage: "doc.text") {
                 openAppWindow(id: "logs")
             }
@@ -237,36 +207,6 @@ struct MenuBarView: View {
 
     private func openSettingsWindow() {
         AppWindowPresenter.present(open: { openSettings() }, target: .settings)
-    }
-
-    private func exportVhosts() {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [UTType(filenameExtension: VhostImportExport.fileExtension) ?? .json]
-        panel.nameFieldStringValue = "vhosts.\(VhostImportExport.fileExtension)"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let data = try vhostStore.exportData()
-            try data.write(to: url, options: .atomic)
-            importExportMessage = "Exported \(vhostStore.vhosts.count) site(s)."
-        } catch {
-            importExportMessage = error.localizedDescription
-        }
-    }
-
-    private func importVhosts() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [UTType(filenameExtension: VhostImportExport.fileExtension) ?? .json]
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let data = try Data(contentsOf: url)
-            let skipped = try vhostStore.importData(data)
-            importExportMessage = skipped > 0
-                ? "Import done. Skipped \(skipped) duplicate(s)."
-                : "Import done."
-        } catch {
-            importExportMessage = error.localizedDescription
-        }
     }
 
     private var isRunning: Bool {

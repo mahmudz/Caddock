@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct VhostListView: View {
     @Environment(AppSettings.self) private var settings
@@ -12,6 +13,7 @@ struct VhostListView: View {
     @State private var pendingDeletion: Vhost?
     @State private var searchText = ""
     @State private var filter: VhostFilter = .all
+    @State private var importExportMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -23,6 +25,7 @@ struct VhostListView: View {
                         Text("Add a vhost to start serving a site through Caddy.")
                     } actions: {
                         Button("Add Vhost", action: openNewVhostEditor)
+                        Button("Import…", action: importVhosts)
                     }
                 } else if filteredVhosts.isEmpty {
                     ContentUnavailableView {
@@ -63,10 +66,29 @@ struct VhostListView: View {
                     .labelsHidden()
                     .frame(width: 220)
                 }
+                ToolbarItem(placement: .automatic) {
+                    Menu {
+                        Button("Import", action: importVhosts)
+                        Button("Export", action: exportVhosts)
+                            .disabled(vhostStore.vhosts.isEmpty)
+                    } label: {
+                        Label("Import / Export", systemImage: "square.and.arrow.up.on.square")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: openNewVhostEditor) {
                         Label("Add Vhost", systemImage: "plus")
                     }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if let importExportMessage {
+                    Text(importExportMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                 }
             }
         }
@@ -199,6 +221,71 @@ struct VhostListView: View {
             openWindow: openWindow,
             route: .edit(vhost)
         )
+    }
+
+    private func hostingWindow() -> NSWindow? {
+        NSApp.windows.first { window in
+            !AppWindowPresenter.isMenuBarPanel(window)
+                && (window.title == "Vhosts" || window.identifier?.rawValue.localizedCaseInsensitiveContains("vhosts") == true)
+        } ?? NSApp.keyWindow
+    }
+
+    private var importExportType: UTType {
+        UTType(filenameExtension: VhostImportExport.fileExtension) ?? .json
+    }
+
+    private func exportVhosts() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [importExportType]
+        panel.nameFieldStringValue = "vhosts.\(VhostImportExport.fileExtension)"
+        panel.canCreateDirectories = true
+
+        let finish: (URL?) -> Void = { url in
+            guard let url else { return }
+            do {
+                let data = try vhostStore.exportData()
+                try data.write(to: url, options: .atomic)
+                importExportMessage = "Exported \(vhostStore.vhosts.count) site(s)."
+            } catch {
+                importExportMessage = error.localizedDescription
+            }
+        }
+
+        if let window = hostingWindow() {
+            panel.beginSheetModal(for: window) { response in
+                finish(response == .OK ? panel.url : nil)
+            }
+        } else if panel.runModal() == .OK {
+            finish(panel.url)
+        }
+    }
+
+    private func importVhosts() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [importExportType]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+
+        let finish: (URL?) -> Void = { url in
+            guard let url else { return }
+            do {
+                let data = try Data(contentsOf: url)
+                let skipped = try vhostStore.importData(data)
+                importExportMessage = skipped > 0
+                    ? "Import done. Skipped \(skipped) duplicate(s)."
+                    : "Import done."
+            } catch {
+                importExportMessage = error.localizedDescription
+            }
+        }
+
+        if let window = hostingWindow() {
+            panel.beginSheetModal(for: window) { response in
+                finish(response == .OK ? panel.url : nil)
+            }
+        } else if panel.runModal() == .OK {
+            finish(panel.url)
+        }
     }
 }
 
