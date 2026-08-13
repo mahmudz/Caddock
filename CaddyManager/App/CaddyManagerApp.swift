@@ -29,15 +29,18 @@ struct CaddyManagerApp: App {
                 .environment(appDelegate.helperInstaller)
                 .environment(appDelegate.healthCheckService)
         }
+        .defaultLaunchBehavior(.suppressed)
 
         Window("Logs", id: "logs") {
             LogsView()
         }
+        .defaultLaunchBehavior(.suppressed)
 
         Window("Docker Compose", id: "docker-compose") {
             DockerComposeInjectView()
                 .environment(appDelegate.vhostStore)
         }
+        .defaultLaunchBehavior(.suppressed)
 
         WindowGroup("Site Logs", id: "site-logs", for: UUID.self) { $vhostID in
             if let vhostID, let vhost = appDelegate.vhostStore.vhosts.first(where: { $0.id == vhostID }) {

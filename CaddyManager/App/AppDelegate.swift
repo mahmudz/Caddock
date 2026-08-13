@@ -55,8 +55,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             enterMenuBarMode(startServices: true)
         } else {
             NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
         }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        AppWindowPresenter.handleDidBecomeActive()
     }
 
     func finishSetup() {
@@ -91,6 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func windowWillClose(_ notification: Notification) {
         let closing = notification.object as? NSWindow
+        if let closing, AppWindowPresenter.isMenuBarPanel(closing) {
+            return
+        }
         DispatchQueue.main.async {
             guard self.setupGate.isComplete else { return }
             AppWindowPresenter.hideDockIconIfNoWindows(excluding: closing)
