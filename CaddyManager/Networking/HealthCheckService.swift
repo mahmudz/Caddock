@@ -146,7 +146,7 @@ final class HealthCheckService {
 
         case .staticSite, .phpSite:
             let port = settings.httpPort
-            guard let url = URL(string: "http://127.0.0.1:\(port)/") else { return nil }
+            guard let url = URL(string: "http://localhost:\(port)/") else { return nil }
             var request = URLRequest(url: url)
             request.httpMethod = "HEAD"
             request.setValue(vhost.domain, forHTTPHeaderField: "Host")
