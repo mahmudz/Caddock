@@ -31,11 +31,22 @@ final class HelperInstaller {
         state = Self.map(service.status)
     }
 
+    /// Registers the LaunchDaemon. macOS does not show an auth sheet for SMAppService
+    /// daemons — status becomes `.requiresApproval` until the user enables the item in
+    /// System Settings → General → Login Items & Extensions → Background Items.
     func register() {
         do {
             try service.register()
             refreshStatus()
         } catch {
+            refreshStatus()
+            if state == .requiresApproval || state == .enabled {
+                return
+            }
+            if Self.isApprovalError(error) {
+                state = .requiresApproval
+                return
+            }
             state = .failed(error.localizedDescription)
         }
     }
@@ -45,7 +56,10 @@ final class HelperInstaller {
             try service.unregister()
             refreshStatus()
         } catch {
-            state = .failed(error.localizedDescription)
+            refreshStatus()
+            if state != .notRegistered {
+                state = .failed(error.localizedDescription)
+            }
         }
     }
 
@@ -55,7 +69,7 @@ final class HelperInstaller {
         do {
             try await service.unregister()
         } catch {
-            state = .failed(error.localizedDescription)
+            // Continue — register may still succeed.
         }
 
         refreshStatus()
@@ -65,12 +79,31 @@ final class HelperInstaller {
             try service.register()
             refreshStatus()
         } catch {
+            refreshStatus()
+            if state == .requiresApproval || state == .enabled {
+                return
+            }
+            if Self.isApprovalError(error) {
+                state = .requiresApproval
+                return
+            }
             state = .failed(error.localizedDescription)
         }
     }
 
     func openSystemSettingsLoginItems() {
         SMAppService.openSystemSettingsLoginItems()
+    }
+
+    private static func isApprovalError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        // ServiceManagement often surfaces approval as "Operation not permitted".
+        if nsError.domain == "SMAppServiceErrorDomain" { return true }
+        let message = error.localizedDescription.lowercased()
+        return message.contains("not permitted")
+            || message.contains("approval")
+            || message.contains("denied")
+            || message.contains("authorization")
     }
 
     private static func map(_ status: SMAppService.Status) -> HelperInstallState {

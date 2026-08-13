@@ -86,12 +86,12 @@ struct HelperSettingsPane: View {
             helperInstaller.refreshStatus()
         }
         .alert("Enable Privileged Helper", isPresented: $showApprovalAlert) {
-            Button("Open System Settings") {
+            Button("Open Login Items Settings") {
                 helperInstaller.openSystemSettingsLoginItems()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Later", role: .cancel) {}
         } message: {
-            Text("CaddyManager needs approval to run its privileged helper. Open System Settings, go to Login Items, find CaddyManager under Background Items, and turn it on.")
+            Text("macOS needs you to allow CaddyManager as a background item.\n\nSystem Settings → General → Login Items & Extensions → Background Items → turn on CaddyManager.")
         }
     }
 
@@ -181,6 +181,7 @@ struct HelperSettingsPane: View {
             await finishHelperSetup()
         }
     }
+
 
     private func finishHelperSetup() async {
         _ = await vhostStore.syncPrivilegedNetworking()

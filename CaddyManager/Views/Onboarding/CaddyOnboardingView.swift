@@ -55,22 +55,25 @@ struct CaddyOnboardingView: View {
         .onAppear(perform: bootstrap)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             helperInstaller.refreshStatus()
+            if step == .helper, helperInstaller.isEnabled, !isBusy {
+                Task { await finishHelperSetup() }
+            }
         }
         .onChange(of: helperInstaller.state) { oldState, newState in
             if newState == .requiresApproval {
-                showApprovalAlert = true
+                presentApprovalAlert()
             }
             if newState == .enabled, oldState == .requiresApproval {
                 Task { await finishHelperSetup() }
             }
         }
         .alert("Enable Privileged Helper", isPresented: $showApprovalAlert) {
-            Button("Open System Settings") {
+            Button("Open Login Items Settings") {
                 helperInstaller.openSystemSettingsLoginItems()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Later", role: .cancel) {}
         } message: {
-            Text("Open System Settings → Login Items, find CaddyManager under Background Items, and turn it on.")
+            Text("macOS needs you to allow CaddyManager as a background item.\n\nSystem Settings → General → Login Items & Extensions → Background Items → turn on CaddyManager.\n\nThen return here and tap Check Again.")
         }
     }
 
@@ -134,7 +137,9 @@ struct CaddyOnboardingView: View {
         case .caddy:
             return installedVersion == nil ? "Install" : "Continue"
         case .helper:
-            return helperInstaller.isEnabled ? "Continue" : "Enable"
+            if helperInstaller.isEnabled { return "Continue" }
+            if case .requiresApproval = helperInstaller.state { return "Check Again" }
+            return "Enable"
         case .certificate:
             return trustStatus == .installedAndTrusted ? "Continue" : "Install"
         case .ready:
@@ -151,7 +156,6 @@ struct CaddyOnboardingView: View {
             return true
         case .helper:
             if case .notFound = helperInstaller.state { return false }
-            if case .requiresApproval = helperInstaller.state { return false }
             return true
         case .certificate, .ready:
             return true
@@ -205,6 +209,18 @@ struct CaddyOnboardingView: View {
                 labeledRow("Status", helperStatusText, color: helperStatusColor)
                 labeledRow("HTTP", "80 → \(settings.httpPort)")
                 labeledRow("HTTPS", "443 → \(settings.httpsPort)")
+
+                if case .requiresApproval = helperInstaller.state {
+                    Text("Enable CaddyManager under System Settings → General → Login Items → Background Items, then tap Check Again.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button("Open Login Items Settings") {
+                        showApprovalAlert = true
+                    }
+                    .buttonStyle(.link)
+                }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -465,6 +481,8 @@ struct CaddyOnboardingView: View {
         case .helper:
             if helperInstaller.isEnabled {
                 advance()
+            } else if case .requiresApproval = helperInstaller.state {
+                recheckHelperApproval()
             } else {
                 enableHelper()
             }
@@ -572,8 +590,7 @@ struct CaddyOnboardingView: View {
         statusText = nil
 
         if helperInstaller.state == .requiresApproval {
-            showApprovalAlert = true
-            statusText = "Waiting for approval in System Settings."
+            promptForHelperApproval()
             return
         }
         if case .failed(let message) = helperInstaller.state {
@@ -582,6 +599,40 @@ struct CaddyOnboardingView: View {
         }
         guard helperInstaller.isEnabled else { return }
         Task { await finishHelperSetup() }
+    }
+
+    private func promptForHelperApproval() {
+        statusText = "Waiting for approval in System Settings."
+        presentApprovalAlert()
+    }
+
+    private func presentApprovalAlert() {
+        // Force re-present if the alert was dismissed earlier.
+        if showApprovalAlert {
+            showApprovalAlert = false
+            DispatchQueue.main.async {
+                showApprovalAlert = true
+            }
+        } else {
+            showApprovalAlert = true
+        }
+    }
+
+    private func recheckHelperApproval() {
+        errorText = nil
+        helperInstaller.refreshStatus()
+        if helperInstaller.isEnabled {
+            statusText = nil
+            Task { await finishHelperSetup() }
+            return
+        }
+        if case .requiresApproval = helperInstaller.state {
+            statusText = "Still waiting for approval."
+            presentApprovalAlert()
+            return
+        }
+        // Status flipped away from approval without enabling — try register again.
+        enableHelper()
     }
 
     private func finishHelperSetup() async {
