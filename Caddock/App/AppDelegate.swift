@@ -23,15 +23,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.helperClient = HelperClient()
         self.vhostEditorSession = VhostEditorSession()
         self.dnsResponder = LocalDNSResponder()
-        self.healthCheckService = HealthCheckService()
-        self.vhostStore = VhostStore(
+        let healthCheckService = HealthCheckService()
+        self.healthCheckService = healthCheckService
+        let vhostStore = VhostStore(
             settings: settings,
             processController: processController,
             helperInstaller: helperInstaller,
             helperClient: helperClient,
-            dnsResponder: dnsResponder
+            dnsResponder: dnsResponder,
+            healthChecker: healthCheckService
         )
+        self.vhostStore = vhostStore
         super.init()
+        healthCheckService.attach(
+            settings: settings,
+            processController: processController,
+            vhostStore: vhostStore
+        )
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -43,12 +51,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             selector: #selector(windowWillClose(_:)),
             name: NSWindow.willCloseNotification,
             object: nil
-        )
-
-        healthCheckService.configure(
-            settings: settings,
-            processController: processController,
-            vhosts: { [weak self] in self?.vhostStore.vhosts ?? [] }
         )
 
         if setupGate.isComplete {
@@ -86,8 +88,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     )
                 }
             }
-            
-            healthCheckService.checkAll()
         }
     }
 

@@ -37,3 +37,8 @@ protocol LocalDNSResponding: AnyObject {
     func update(tlds: [String])
     func stop()
 }
+
+@MainActor
+protocol BackendHealthChecking: AnyObject {
+    func checkAll()
+}

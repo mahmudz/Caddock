@@ -27,9 +27,6 @@ struct MenuBarView: View {
             footerActions
         }
         .frame(width: menuWidth)
-        .onChange(of: processController.status) { _, _ in
-            healthCheckService.checkAll()
-        }
     }
 
     private var statusHeader: some View {

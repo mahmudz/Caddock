@@ -14,6 +14,7 @@ final class VhostStore {
     private let helperInstaller: any PrivilegedHelperInstalling
     private let helperClient: any PrivilegedHelperClienting
     private let dnsResponder: any LocalDNSResponding
+    private weak var healthChecker: (any BackendHealthChecking)?
     private let fileManager = FileManager.default
 
     init(
@@ -21,13 +22,15 @@ final class VhostStore {
         processController: any CaddyControlling,
         helperInstaller: any PrivilegedHelperInstalling,
         helperClient: any PrivilegedHelperClienting,
-        dnsResponder: any LocalDNSResponding
+        dnsResponder: any LocalDNSResponding,
+        healthChecker: (any BackendHealthChecking)? = nil
     ) {
         self.settings = settings
         self.processController = processController
         self.helperInstaller = helperInstaller
         self.helperClient = helperClient
         self.dnsResponder = dnsResponder
+        self.healthChecker = healthChecker
         load()
     }
 
@@ -119,6 +122,7 @@ final class VhostStore {
 
             guard let binary = CaddyInstallation.locateBinary(override: settings.caddyBinaryPathOverride) else {
                 lastError = "Caddy binary not found. Open Install Caddy… from the menu to set it up."
+                await refreshHealth()
                 return
             }
 
@@ -139,6 +143,12 @@ final class VhostStore {
             Self.logger.error("Failed to regenerate/reload Caddy config: \(error.localizedDescription)")
             lastError = error.localizedDescription
         }
+
+        await refreshHealth()
+    }
+
+    private func refreshHealth() async {
+        await healthChecker?.checkAll()
     }
 
     /// After ports change: reload Caddy, then reinstall pf redirects.

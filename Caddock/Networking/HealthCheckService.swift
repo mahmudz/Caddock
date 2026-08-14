@@ -20,15 +20,18 @@ private final class HealthCheckSessionDelegate: NSObject, URLSessionTaskDelegate
     }
 }
 
+@MainActor
 @Observable
-final class HealthCheckService {
+final class HealthCheckService: BackendHealthChecking {
     private(set) var statuses: [UUID: BackendHealthStatus] = [:]
 
     private var timer: Timer?
-    private var inFlight = Set<UUID>()
+    private var checkGenerations: [UUID: UInt64] = [:]
+    private var isStarted = false
+
     private weak var settings: AppSettings?
     private weak var processController: CaddyProcessController?
-    private var vhostsProvider: (() -> [Vhost])?
+    private weak var vhostStore: VhostStore?
 
     private let sessionDelegate = HealthCheckSessionDelegate()
     private let session: URLSession
@@ -41,27 +44,32 @@ final class HealthCheckService {
         session = URLSession(configuration: config, delegate: sessionDelegate, delegateQueue: nil)
     }
 
-    func configure(
+    func attach(
         settings: AppSettings,
         processController: CaddyProcessController,
-        vhosts: @escaping () -> [Vhost]
+        vhostStore: VhostStore
     ) {
         self.settings = settings
         self.processController = processController
-        self.vhostsProvider = vhosts
+        self.vhostStore = vhostStore
     }
 
     func start() {
         stop()
+        isStarted = true
         let timer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
-            self?.checkAll()
+            Task { @MainActor in
+                self?.checkAll()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+        watchProcessStatus()
         checkAll()
     }
 
     func stop() {
+        isStarted = false
         timer?.invalidate()
         timer = nil
     }
@@ -73,22 +81,35 @@ final class HealthCheckService {
     func checkAll() {
         guard let processController, case .running = processController.status else {
             statuses = [:]
+            checkGenerations = [:]
             return
         }
-        guard let settings, let vhostsProvider else { return }
+        guard let settings, let vhostStore else { return }
 
-        let enabled = vhostsProvider().filter(\.isEnabled)
+        let enabled = vhostStore.vhosts.filter(\.isEnabled)
         let enabledIDs = Set(enabled.map(\.id))
         statuses = statuses.filter { enabledIDs.contains($0.key) }
+        checkGenerations = checkGenerations.filter { enabledIDs.contains($0.key) }
 
         for vhost in enabled {
             check(vhost: vhost, settings: settings)
         }
     }
 
-    private func check(vhost: Vhost, settings: AppSettings) {
-        guard !inFlight.contains(vhost.id) else { return }
+    private func watchProcessStatus() {
+        guard isStarted, let processController else { return }
+        withObservationTracking {
+            _ = processController.status
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, self.isStarted else { return }
+                self.checkAll()
+                self.watchProcessStatus()
+            }
+        }
+    }
 
+    private func check(vhost: Vhost, settings: AppSettings) {
         if vhost.isWildcard, vhost.kind != .reverseProxy {
             statuses[vhost.id] = .unknown
             return
@@ -99,15 +120,16 @@ final class HealthCheckService {
             return
         }
 
-        inFlight.insert(vhost.id)
-        statuses[vhost.id] = .checking
-
         let id = vhost.id
         let kind = vhost.kind
+        let generation = (checkGenerations[id] ?? 0) + 1
+        checkGenerations[id] = generation
+        statuses[id] = .checking
+
         session.dataTask(with: request) { [weak self] _, response, error in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 guard let self else { return }
-                self.inFlight.remove(id)
+                guard self.checkGenerations[id] == generation else { return }
 
                 if let http = response as? HTTPURLResponse {
                     self.statuses[id] = (200..<500).contains(http.statusCode) ? .healthy : .unhealthy
