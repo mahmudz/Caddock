@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build, notarize, and package CaddyManager as a distributable .dmg
+# Build, notarize, and package Caddock as a distributable .dmg
 #
 # Prerequisites
 #   1. "Developer ID Application" certificate in the login keychain
 #   2. Notary credentials stored once via:
-#        xcrun notarytool store-credentials "CaddyManager-notary" \
+#        xcrun notarytool store-credentials "Caddock-notary" \
 #          --apple-id "you@example.com" \
 #          --team-id "SP792GFSPZ" \
 #          --password "<app-specific-password>"
@@ -18,19 +18,19 @@
 #   NOTARY_PROFILE=MyProfile ./scripts/release.sh
 #
 # Output
-#   dist/CaddyManager-<version>.dmg
+#   dist/Caddock-<version>.dmg
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-APP_NAME="CaddyManager"
-PROJECT="CaddyManager.xcodeproj"
-SCHEME="CaddyManager"
+APP_NAME="Caddock"
+PROJECT="Caddock.xcodeproj"
+SCHEME="Caddock"
 CONFIGURATION="Release"
 TEAM_ID="${APPLE_TEAM_ID:-SP792GFSPZ}"
-NOTARY_PROFILE="${NOTARY_PROFILE:-CaddyManager-notary}"
+NOTARY_PROFILE="${NOTARY_PROFILE:-Caddock-notary}"
 SIGN_IDENTITY="${SIGN_IDENTITY:-}"
 SKIP_NOTARIZE=0
 SKIP_SIGN=0

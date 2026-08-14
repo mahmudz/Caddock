@@ -1,13 +1,13 @@
-# CaddyManager — Greenfield Rebuild Specification
+# Caddock — Greenfield Rebuild Specification
 
 > Hand this document to an agent (or developer) to rebuild the app from scratch.
 > It describes the **product to ship**, not the current messy codebase.
 > Prefer clean architecture and the defect fixes listed in §16 over copying old file layout.
 
-**Product name:** CaddyManager  
+**Product name:** Caddock  
 **Platform:** macOS menu bar app (not Mac App Store)  
-**Bundle ID (app):** `dev.mahmudz.CaddyManager`  
-**Bundle ID (helper):** `dev.mahmudz.CaddyManager.Helper`  
+**Bundle ID (app):** `dev.mahmudz.Caddock`  
+**Bundle ID (helper):** `dev.mahmudz.Caddock.Helper`  
 **Team ID (current):** `SP792GFSPZ`  
 **Distribution:** Developer ID signed + notarized DMG  
 
@@ -42,24 +42,24 @@ Users define virtual hosts (static / PHP / reverse proxy). The app writes one sh
 
 | Target | Type | Notes |
 |---|---|---|
-| `CaddyManager` | macOS App | Menu bar UI, Caddy control, XPC client |
-| `CaddyManagerHelper` | Command-line tool | Root daemon, implements XPC protocol |
-| `CaddyManagerTests` (optional but recommended) | Unit tests | Pure logic: config builder, validator, domain policy |
+| `Caddock` | macOS App | Menu bar UI, Caddy control, XPC client |
+| `CaddockHelper` | Command-line tool | Root daemon, implements XPC protocol |
+| `CaddockTests` (optional but recommended) | Unit tests | Pure logic: config builder, validator, domain policy |
 
 Embed helper binary into the app. Copy LaunchDaemon plist to:
 
 ```
-CaddyManager.app/Contents/Library/LaunchDaemons/dev.mahmudz.CaddyManager.Helper.plist
+Caddock.app/Contents/Library/LaunchDaemons/dev.mahmudz.Caddock.Helper.plist
 ```
 
-Commit a shared `.xcscheme` for `CaddyManager` (release script depends on it).
+Commit a shared `.xcscheme` for `Caddock` (release script depends on it).
 
 ### 2.2 Suggested source layout
 
 ```
-CaddyManager/
+Caddock/
 ├── App/
-│   ├── CaddyManagerApp.swift          # Scenes: MenuBarExtra, Windows, Settings, Setup
+│   ├── CaddockApp.swift          # Scenes: MenuBarExtra, Windows, Settings, Setup
 │   └── AppDelegate.swift              # Activation policy, login item sync, finishSetup
 ├── Domain/
 │   ├── Models/                        # Vhost, AppSettings, LogSource, ValidationIssue
@@ -96,7 +96,7 @@ CaddyManager/
     ├── AppLog.swift
     └── AppWindowPresenter.swift
 
-CaddyManagerHelper/
+CaddockHelper/
 ├── main.swift
 ├── HelperTool.swift
 ├── HelperListenerDelegate.swift       # code-signing check on XPC peer
@@ -110,7 +110,7 @@ Shared/
 └── HelperConstants.swift
 
 LaunchDaemonPlist/
-└── dev.mahmudz.CaddyManager.Helper.plist
+└── dev.mahmudz.Caddock.Helper.plist
 
 scripts/
 └── release.sh
@@ -123,23 +123,23 @@ scripts/
 ## 3. Identity & constants
 
 ```
-App bundle ID:     dev.mahmudz.CaddyManager
-Helper bundle ID:  dev.mahmudz.CaddyManager.Helper
-Mach service:      dev.mahmudz.CaddyManager.Helper
-Launchd label:     dev.mahmudz.CaddyManager.Helper
-Daemon plist name: dev.mahmudz.CaddyManager.Helper.plist
-pf anchor name:    dev.mahmudz.CaddyManager
+App bundle ID:     dev.mahmudz.Caddock
+Helper bundle ID:  dev.mahmudz.Caddock.Helper
+Mach service:      dev.mahmudz.Caddock.Helper
+Launchd label:     dev.mahmudz.Caddock.Helper
+Daemon plist name: dev.mahmudz.Caddock.Helper.plist
+pf anchor name:    dev.mahmudz.Caddock
 DNS listen port:   53535
 ```
 
 LaunchDaemon plist essentials:
 
 - `Label` = launchd label  
-- `BundleProgram` = `Contents/MacOS/CaddyManagerHelper`  
-- `MachServices` = `{ "dev.mahmudz.CaddyManager.Helper": true }`  
-- `AssociatedBundleIdentifiers` = `["dev.mahmudz.CaddyManager"]`
+- `BundleProgram` = `Contents/MacOS/CaddockHelper`  
+- `MachServices` = `{ "dev.mahmudz.Caddock.Helper": true }`  
+- `AssociatedBundleIdentifiers` = `["dev.mahmudz.Caddock"]`
 
-XPC accept policy: require peer code signature with identifier `dev.mahmudz.CaddyManager`. Prefer also verifying Team ID / Developer ID when practical.
+XPC accept policy: require peer code signature with identifier `dev.mahmudz.Caddock`. Prefer also verifying Team ID / Developer ID when practical.
 
 ---
 
@@ -201,16 +201,16 @@ Rename from `hasCompletedCaddyOnboarding` if rebuilding — setup is multi-step 
 
 | Data | Path |
 |---|---|
-| Vhosts | `~/Library/Application Support/CaddyManager/vhosts.json` |
-| Generated Caddyfile | `~/Library/Application Support/CaddyManager/Caddy/Caddyfile` |
-| Managed Caddy binary | `~/Library/Application Support/CaddyManager/bin/caddy` |
-| Caddy process log | `~/Library/Logs/CaddyManager/caddy.log` |
-| App log | `~/Library/Logs/CaddyManager/app.log` |
+| Vhosts | `~/Library/Application Support/Caddock/vhosts.json` |
+| Generated Caddyfile | `~/Library/Application Support/Caddock/Caddy/Caddyfile` |
+| Managed Caddy binary | `~/Library/Application Support/Caddock/bin/caddy` |
+| Caddy process log | `~/Library/Logs/Caddock/caddy.log` |
+| App log | `~/Library/Logs/Caddock/app.log` |
 | Caddy PKI root | `~/Library/Application Support/Caddy/pki/authorities/local/root.crt` |
-| Helper persisted state | `/Library/Application Support/CaddyManager/HelperState.json` |
-| pf anchor | `/etc/pf.anchors/dev.mahmudz.CaddyManager` |
+| Helper persisted state | `/Library/Application Support/Caddock/HelperState.json` |
+| pf anchor | `/etc/pf.anchors/dev.mahmudz.Caddock` |
 
-Atomic writes for JSON/Caddyfile. Import/export format: `.caddymanager` (JSON array of vhosts).
+Atomic writes for JSON/Caddyfile. Import/export format: `.caddock` (JSON array of vhosts).
 
 ---
 
@@ -335,7 +335,7 @@ On helper launch: start XPC listener, then reapply persisted pf/hosts/resolvers 
 
 `SMAppService.daemon.register()` **does not show a password dialog**. Status becomes `.requiresApproval` until the user enables the item in:
 
-**System Settings → General → Login Items & Extensions → Background Items → CaddyManager**
+**System Settings → General → Login Items & Extensions → Background Items → Caddock**
 
 Required UX:
 
@@ -565,9 +565,9 @@ Opening any real window may temporarily use `.regular` then hide Dock icon when 
 
 Script equivalent of current `scripts/release.sh`:
 
-1. `xcodebuild archive` Release scheme `CaddyManager`  
+1. `xcodebuild archive` Release scheme `Caddock`  
 2. Export / codesign Developer ID Application  
-3. Build UDZO DMG: app + `/Applications` symlink → `dist/CaddyManager-<version>.dmg`  
+3. Build UDZO DMG: app + `/Applications` symlink → `dist/Caddock-<version>.dmg`  
 4. `notarytool submit` + staple  
 5. Flags: `--skip-notarize`, `--skip-sign`  
 
@@ -635,7 +635,7 @@ Prereqs: Developer ID cert, notary credentials profile.
 
 Use as behavioral reference only — **do not copy structure blindly**:
 
-- Repo path: this project’s `CaddyManager/` + `CaddyManagerHelper/` + `Shared/`  
+- Repo path: this project’s `Caddock/` + `CaddockHelper/` + `Shared/`  
 - Release: `scripts/release.sh`  
 - Prior README architecture table still valid for *decisions* (high ports, helper, Caddyfile+adapt)  
 
@@ -646,7 +646,7 @@ When uncertain, prefer this SPEC over old code.
 ## 19. Agent instructions (copy into the prompt)
 
 ```
-Rebuild CaddyManager as a new clean macOS project following REBUILD_SPEC.md exactly.
+Rebuild Caddock as a new clean macOS project following REBUILD_SPEC.md exactly.
 
 Rules:
 - One global Caddy process; Caddyfile → adapt → admin /load

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.png" alt="CaddyManager" width="100%">
+  <img src="docs/banner.png" alt="Caddock" width="100%">
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/version-1.0-7B3FF2" alt="Version 1.0">
 </p>
 
-CaddyManager is a Valet-style local server for people who already like Caddy. You define virtual hosts in the menu bar. The app writes one shared Caddyfile, hot-reloads a single Caddy instance, and optionally maps `*.test` (and friends) onto ports 80 and 443.
+Caddock is a Valet-style local server for people who already like Caddy. You define virtual hosts in the menu bar. The app writes one shared Caddyfile, hot-reloads a single Caddy instance, and optionally maps `*.test` (and friends) onto ports 80 and 443.
 
 One Caddy process. Not one process per site.
 
@@ -37,7 +37,7 @@ Not Mac App Store. No App Sandbox. Distributed as a Developer ID, notarized DMG 
 
 ## Usage
 
-1. Launch CaddyManager. The setup wizard installs Caddy, offers the privileged helper, and trusts the local CA.
+1. Launch Caddock. The setup wizard installs Caddy, offers the privileged helper, and trusts the local CA.
 2. Click **New Vhost** in the menu bar.
 3. Pick a type:
    - **Static Site:** folder served with `file_server`
@@ -51,8 +51,8 @@ Without the helper, sites listen on high ports (`:8880` / `:8843`). With the hel
 ## Build
 
 ```bash
-xcodebuild -project CaddyManager.xcodeproj -scheme CaddyManager -configuration Debug build
-open CaddyManager.xcodeproj
+xcodebuild -project Caddock.xcodeproj -scheme Caddock -configuration Debug build
+open Caddock.xcodeproj
 ```
 
 ## Release DMG
@@ -65,7 +65,7 @@ Needs a **Developer ID Application** certificate and notary credentials.
 ./scripts/release.sh --skip-notarize --skip-sign
 ```
 
-Output: `dist/CaddyManager-<version>.dmg`
+Output: `dist/Caddock-<version>.dmg`
 
 ## How it works
 
@@ -88,6 +88,6 @@ Architecture notes for contributors live in [`REBUILD_SPEC.md`](REBUILD_SPEC.md)
 
 | | |
 |---|---|
-| App bundle ID | `dev.mahmudz.CaddyManager` |
-| Helper bundle ID | `dev.mahmudz.CaddyManager.Helper` |
+| App bundle ID | `dev.mahmudz.Caddock` |
+| Helper bundle ID | `dev.mahmudz.Caddock.Helper` |
 | Team ID | `SP792GFSPZ` |

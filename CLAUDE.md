@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-This is a fresh Xcode SwiftUI macOS app scaffold. `ContentView.swift` and `CaddyManagerApp.swift` still contain the default "Hello, world!" template — none of the product described in `README.md` is implemented yet. The README is the design intent; the code is not there yet. Expect to build features from scratch.
+This is a fresh Xcode SwiftUI macOS app scaffold. `ContentView.swift` and `CaddockApp.swift` still contain the default "Hello, world!" template — none of the product described in `README.md` is implemented yet. The README is the design intent; the code is not there yet. Expect to build features from scratch.
 
 ## What this app is meant to be
 
@@ -35,20 +35,20 @@ Per-vhost capabilities the app should support:
 
 ## Build / run / test
 
-Single target and scheme, both named `CaddyManager`. No CocoaPods/SPM/Carthage manifests — pure Xcode project.
+Single target and scheme, both named `Caddock`. No CocoaPods/SPM/Carthage manifests — pure Xcode project.
 
 ```bash
 # Build (Debug)
-xcodebuild -project CaddyManager.xcodeproj -scheme CaddyManager -configuration Debug build
+xcodebuild -project Caddock.xcodeproj -scheme Caddock -configuration Debug build
 
 # Run: open in Xcode and Cmd+R (menu bar / GUI app — no CLI run target)
-open CaddyManager.xcodeproj
+open Caddock.xcodeproj
 ```
 
 Note: default build configuration is **Release** if `-configuration` is omitted.
 
 ## Project facts
 
-- Bundle ID: `dev.mahmudz.CaddyManager`
+- Bundle ID: `dev.mahmudz.Caddock`
 - macOS deployment target: 26.4
 - Swift 5.0 language version, SwiftUI
