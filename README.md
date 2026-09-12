@@ -7,9 +7,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/macOS-15%2B-black" alt="macOS 15+">
-  <img src="https://img.shields.io/badge/Caddy-2.x-00b140" alt="Caddy 2">
-  <img src="https://img.shields.io/badge/version-1.0-7B3FF2" alt="Version 1.0">
+  <img src="https://img.shields.io/github/v/release/mahmudz/Caddock?style=for-the-badge&logo=github&logoColor=white&label=Release" alt="Release">
+  <img src="https://img.shields.io/github/downloads/mahmudz/Caddock/total?style=for-the-badge&logo=github&logoColor=white&label=Downloads" alt="Downloads">
+  <img src="https://img.shields.io/badge/macOS-15.0+-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS 15.0+">
+  <img src="https://img.shields.io/badge/Swift-5.0-F05138?style=for-the-badge&logo=swift&logoColor=white" alt="Swift 5.0">
+  <img src="https://img.shields.io/github/stars/mahmudz/Caddock?style=for-the-badge&logo=github&logoColor=white" alt="Stars">
 </p>
 
 Caddock is a Valet-style local server for people who already like Caddy. You define virtual hosts in the menu bar. The app writes one shared Caddyfile, hot-reloads a single Caddy instance, and optionally maps `*.test` (and friends) onto ports 80 and 443.
