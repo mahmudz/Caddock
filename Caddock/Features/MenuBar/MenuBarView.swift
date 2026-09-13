@@ -160,12 +160,13 @@ struct MenuBarView: View {
     private var filteredVhosts: [Vhost] {
         let enabled = vhostStore.vhosts
             .filter(\.isEnabled)
-            .sorted { $0.domain.localizedCaseInsensitiveCompare($1.domain) == .orderedAscending }
+            .sorted { $0.displayDomain.localizedCaseInsensitiveCompare($1.displayDomain) == .orderedAscending }
 
         guard !searchText.isEmpty else { return enabled }
 
         return enabled.filter {
-            $0.domain.localizedCaseInsensitiveContains(searchText)
+            $0.displayDomain.localizedCaseInsensitiveContains(searchText)
+                || $0.domain.localizedCaseInsensitiveContains(searchText)
                 || $0.aliases.contains(where: { $0.localizedCaseInsensitiveContains(searchText) })
         }
     }

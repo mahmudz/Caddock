@@ -100,13 +100,29 @@ struct Vhost: Identifiable, Codable, Equatable {
 
     var allDomains: [String] {
         var seen = Set<String>()
-        return ([domain] + aliases)
+        var names = [domain] + aliases
+        if let apex = wildcardApexDomain {
+            names.append(apex)
+        }
+        return names
             .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
             .filter { !$0.isEmpty && seen.insert($0).inserted }
     }
 
     var isWildcard: Bool {
         LocalDomainPolicy.isWildcardDomain(domain)
+    }
+
+    /// `*.wordpress.test` → `wordpress.test`
+    var wildcardApexDomain: String? {
+        guard isWildcard else { return nil }
+        let apex = String(domain.dropFirst(2))
+        return apex.isEmpty ? nil : apex
+    }
+
+    /// Lists show the apex; the wildcard badge carries the `*.` meaning.
+    var displayDomain: String {
+        wildcardApexDomain ?? domain
     }
 
     var topLevelDomain: String? {
@@ -139,18 +155,19 @@ struct Vhost: Identifiable, Codable, Equatable {
     }
 
     func browserURL(settings: AppSettings, useStandardPorts: Bool) -> URL? {
-        guard !domain.isEmpty, !isWildcard else { return nil }
+        let host = displayDomain.trimmingCharacters(in: .whitespaces)
+        guard !host.isEmpty else { return nil }
 
         if sslEnabled {
             if useStandardPorts || settings.httpsPort == 443 {
-                return URL(string: "https://\(domain)")
+                return URL(string: "https://\(host)")
             }
-            return URL(string: "https://\(domain):\(settings.httpsPort)")
+            return URL(string: "https://\(host):\(settings.httpsPort)")
         }
 
         if useStandardPorts || settings.httpPort == 80 {
-            return URL(string: "http://\(domain)")
+            return URL(string: "http://\(host)")
         }
-        return URL(string: "http://\(domain):\(settings.httpPort)")
+        return URL(string: "http://\(host):\(settings.httpPort)")
     }
 }

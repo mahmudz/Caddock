@@ -3,6 +3,13 @@ import XCTest
 
 @MainActor
 final class LocalDomainPolicyTests: XCTestCase {
+    func testEncodeDomainTogglesWildcardPrefix() {
+        XCTAssertEqual(LocalDomainPolicy.encodeDomain("wordpress.test", wildcard: true), "*.wordpress.test")
+        XCTAssertEqual(LocalDomainPolicy.encodeDomain("*.wordpress.test", wildcard: true), "*.wordpress.test")
+        XCTAssertEqual(LocalDomainPolicy.encodeDomain("*.wordpress.test", wildcard: false), "wordpress.test")
+        XCTAssertEqual(LocalDomainPolicy.stripWildcardPrefix("*.wordpress.test"), "wordpress.test")
+    }
+
     func testWildcardRequiresStarDotAndAtLeastTwoLabels() {
         XCTAssertTrue(LocalDomainPolicy.isWildcardDomain("*.app.test"))
         XCTAssertTrue(LocalDomainPolicy.isWildcardDomain("*.myapp.localhost"))
@@ -41,6 +48,14 @@ final class LocalDomainPolicyTests: XCTestCase {
         XCTAssertFalse(LocalDomainPolicy.isRecommendedTLD("local"))
     }
 
+    func testWildcardImpliesApexInAllDomainsAndDisplay() {
+        let vhost = Vhost(domain: "*.wordpress.test", kind: .phpSite)
+        XCTAssertEqual(vhost.wildcardApexDomain, "wordpress.test")
+        XCTAssertEqual(vhost.displayDomain, "wordpress.test")
+        XCTAssertEqual(vhost.allDomains, ["*.wordpress.test", "wordpress.test"])
+        XCTAssertEqual(vhost.healthCheckHost, "wordpress.test")
+    }
+
     func testHealthCheckHostPrefersExactAliasForWildcard() {
         let vhost = Vhost(
             domain: "*.wordpress.test",
@@ -50,9 +65,9 @@ final class LocalDomainPolicyTests: XCTestCase {
         XCTAssertEqual(vhost.healthCheckHost, "wordpress.test")
     }
 
-    func testHealthCheckHostSynthesizesNameWhenWildcardHasNoAlias() {
+    func testHealthCheckHostUsesImpliedApexWhenWildcardHasNoAlias() {
         let vhost = Vhost(domain: "*.wordpress.test", kind: .phpSite)
-        XCTAssertEqual(vhost.healthCheckHost, "caddock.wordpress.test")
+        XCTAssertEqual(vhost.healthCheckHost, "wordpress.test")
     }
 
     func testHealthCheckHostUsesExactDomain() {

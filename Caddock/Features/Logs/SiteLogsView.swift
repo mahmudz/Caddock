@@ -50,7 +50,7 @@ struct SiteLogsView: View {
             }
         }
         .frame(minWidth: 640, minHeight: 420)
-        .navigationTitle("Logs — \(vhost.domain)")
+        .navigationTitle("Logs — \(vhost.displayDomain)")
         .toolbar {
             ToolbarItem {
                 Toggle(isOn: $autoScroll) {

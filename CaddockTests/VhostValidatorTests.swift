@@ -46,6 +46,19 @@ final class VhostValidatorTests: XCTestCase {
         XCTAssertTrue(VhostValidator.isValid(vhost, existing: []))
     }
 
+    func testWildcardConflictsWithExistingApex() {
+        let existing = Vhost(domain: "wordpress.test", kind: .staticSite, documentRoot: "/tmp")
+        let wildcard = Vhost(
+            domain: "*.wordpress.test",
+            kind: .staticSite,
+            documentRoot: "/tmp/wp"
+        )
+        let issues = VhostValidator.validate(wildcard, existing: [existing])
+        XCTAssertTrue(issues.contains {
+            $0.severity == .error && $0.message == "Another vhost already uses this domain."
+        })
+    }
+
     func testDuplicateDomainIsError() {
         let existing = Vhost(domain: "app.test", kind: .staticSite, documentRoot: "/tmp")
         let duplicate = Vhost(domain: "app.test", kind: .staticSite, documentRoot: "/tmp/other")

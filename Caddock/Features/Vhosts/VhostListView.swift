@@ -171,6 +171,7 @@ struct VhostListView: View {
 
         let haystack = [
             vhost.domain,
+            vhost.displayDomain,
             vhost.aliases.joined(separator: " "),
             vhost.kind.displayName,
             vhost.documentRoot ?? "",
@@ -336,10 +337,19 @@ private struct VhostRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(vhost.domain)
+                    Text(vhost.displayDomain)
                         .font(.body.bold())
                         .foregroundStyle(vhost.isEnabled ? .primary : .secondary)
                         .lineLimit(1)
+
+                    if vhost.isWildcard {
+                        Text("wildcard")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Color.purple.opacity(0.2), in: Capsule())
+                            .foregroundStyle(.purple)
+                    }
 
                     if hasErrors || hasWarnings {
                         Image(systemName: hasErrors ? "exclamationmark.triangle.fill" : "exclamationmark.circle.fill")

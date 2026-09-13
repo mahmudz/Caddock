@@ -20,7 +20,7 @@ struct VhostMenuRow: View {
                         .foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: 4) {
-                            Text(vhost.domain)
+                            Text(vhost.displayDomain)
                                 .lineLimit(1)
                             if vhost.isWildcard {
                                 Text("wildcard")

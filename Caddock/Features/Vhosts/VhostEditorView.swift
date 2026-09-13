@@ -64,8 +64,11 @@ struct VhostEditorView: View {
 
     private var domainSection: some View {
         Section {
-            TextField("myproject.test", text: $vhost.domain)
+            TextField("myproject.test", text: domainApexBinding)
                 .textFieldStyle(.roundedBorder)
+            Toggle(isOn: wildcardBinding) {
+                Label("Wildcard subdomains", systemImage: "asterisk.circle")
+            }
             TextField("Aliases (comma-separated)", text: aliasesBinding)
                 .textFieldStyle(.roundedBorder)
             Picker("Type", selection: $vhost.kind) {
@@ -76,8 +79,35 @@ struct VhostEditorView: View {
         } header: {
             Label("Domain", systemImage: "globe")
         } footer: {
-            Text("Aliases share one site block. Wildcards (*.myapp.test) use local DNS, not /etc/hosts. Chrome uses its own resolver — turn off Settings → Privacy and security → Security → Use (OS Default) DNS.")
+            Text(wildcardFooter)
         }
+    }
+
+    private var wildcardFooter: String {
+        if vhost.isWildcard, !vhost.displayDomain.isEmpty {
+            return "Serves \(vhost.displayDomain) and *.\(vhost.displayDomain). Apex goes in /etc/hosts; subdomains use local DNS. Chrome: turn off Secure DNS / built-in async DNS."
+        }
+        return "Turn on wildcard to also serve *.\(vhost.displayDomain.isEmpty ? "myproject.test" : vhost.displayDomain). Chrome: turn off Secure DNS / built-in async DNS."
+    }
+
+    private var domainApexBinding: Binding<String> {
+        Binding(
+            get: { vhost.displayDomain },
+            set: { raw in
+                let trimmed = raw.trimmingCharacters(in: .whitespaces).lowercased()
+                let enableWildcard = vhost.isWildcard || trimmed.hasPrefix("*.")
+                vhost.domain = LocalDomainPolicy.encodeDomain(trimmed, wildcard: enableWildcard)
+            }
+        )
+    }
+
+    private var wildcardBinding: Binding<Bool> {
+        Binding(
+            get: { vhost.isWildcard },
+            set: { enabled in
+                vhost.domain = LocalDomainPolicy.encodeDomain(vhost.domain, wildcard: enabled)
+            }
+        )
     }
 
     @ViewBuilder
@@ -323,7 +353,7 @@ struct VhostEditorView: View {
     }
 
     private func save() {
-        vhost.domain = vhost.domain.trimmingCharacters(in: .whitespaces).lowercased()
+        vhost.domain = LocalDomainPolicy.encodeDomain(vhost.domain, wildcard: vhost.isWildcard)
         let result = isNew ? vhostStore.add(vhost) : vhostStore.update(vhost)
         issues = result
         if result.contains(where: { $0.severity == .error && Self.isAdvancedIssue($0) }) {

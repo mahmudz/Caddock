@@ -55,6 +55,19 @@ final class CaddyConfigBuilderTests: XCTestCase {
         XCTAssertFalse(caddyfile.contains("off.test"))
     }
 
+    func testWildcardSiteIncludesApexAddress() {
+        let vhost = Vhost(
+            domain: "*.wordpress.test",
+            kind: .phpSite,
+            documentRoot: "/tmp/wordpress",
+            phpSocketPath: "127.0.0.1:9000"
+        )
+
+        let caddyfile = CaddyConfigBuilder.buildCaddyfile(vhosts: [vhost], settings: settings)
+
+        XCTAssertTrue(caddyfile.contains("*.wordpress.test, wordpress.test {"))
+    }
+
     func testSSLOnUsesDomainAndTlsInternal() {
         let vhost = Vhost(
             domain: "secure.test",

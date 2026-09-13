@@ -24,6 +24,20 @@ enum LocalDomainPolicy {
         domain.hasPrefix("*.") && domain.split(separator: ".").count >= 3
     }
 
+    static func stripWildcardPrefix(_ domain: String) -> String {
+        let trimmed = domain.trimmingCharacters(in: .whitespaces).lowercased()
+        if trimmed.hasPrefix("*.") {
+            return String(trimmed.dropFirst(2))
+        }
+        return trimmed
+    }
+
+    static func encodeDomain(_ apex: String, wildcard: Bool) -> String {
+        let apex = stripWildcardPrefix(apex)
+        guard !apex.isEmpty else { return wildcard ? "*." : "" }
+        return wildcard ? "*.\(apex)" : apex
+    }
+
     static func isBlockedPublicTLD(_ tld: String) -> Bool {
         blockedPublicTLDs.contains(tld.lowercased())
     }

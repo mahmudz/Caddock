@@ -43,7 +43,8 @@ enum VhostValidator {
             ))
         }
 
-        if existing.contains(where: { $0.id != vhost.id && $0.allDomains.contains(vhost.domain.lowercased()) }) {
+        let ownDomains = Set(vhost.allDomains)
+        if existing.contains(where: { $0.id != vhost.id && !Set($0.allDomains).isDisjoint(with: ownDomains) }) {
             issues.append(.init(severity: .error, message: "Another vhost already uses this domain."))
         }
 
@@ -66,7 +67,10 @@ enum VhostValidator {
             }
         }
 
-        if vhost.allDomains.count != ([vhost.domain] + vhost.aliases.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }).filter({ !$0.isEmpty }).count {
+        let declared = ([vhost.domain] + vhost.aliases)
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            .filter { !$0.isEmpty }
+        if Set(declared).count != declared.count {
             issues.append(.init(severity: .error, message: "Duplicate aliases are not allowed."))
         }
 
