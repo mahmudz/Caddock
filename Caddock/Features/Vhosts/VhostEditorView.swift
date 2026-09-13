@@ -64,17 +64,21 @@ struct VhostEditorView: View {
 
     private var domainSection: some View {
         Section {
-            TextField("myproject.test", text: domainApexBinding)
-                .textFieldStyle(.roundedBorder)
+            iconField("myproject.test", systemImage: "globe", text: domainApexBinding)
             Toggle(isOn: wildcardBinding) {
                 Label("Wildcard subdomains", systemImage: "asterisk.circle")
             }
-            TextField("Aliases (comma-separated)", text: aliasesBinding)
-                .textFieldStyle(.roundedBorder)
-            Picker("Type", selection: $vhost.kind) {
-                ForEach(Vhost.Kind.allCases, id: \.self) { kind in
-                    Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
+            iconField("Aliases (comma-separated)", systemImage: "at", text: aliasesBinding)
+            HStack(spacing: 8) {
+                Image(systemName: "square.stack.3d.up")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, alignment: .center)
+                Picker("Type", selection: $vhost.kind) {
+                    ForEach(Vhost.Kind.allCases, id: \.self) { kind in
+                        Label(kind.displayName, systemImage: kind.systemImage).tag(kind)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         } header: {
             Label("Domain", systemImage: "globe")
@@ -115,7 +119,7 @@ struct VhostEditorView: View {
         switch vhost.kind {
         case .staticSite:
             Section {
-                TextField("Document root", text: documentRootBinding)
+                iconField("Document root", systemImage: "folder", text: documentRootBinding)
             } header: {
                 Label("Static Site", systemImage: vhost.kind.systemImage)
             } footer: {
@@ -123,8 +127,8 @@ struct VhostEditorView: View {
             }
         case .phpSite:
             Section {
-                TextField("Document root", text: documentRootBinding)
-                TextField("PHP-FPM socket path", text: phpSocketPathBinding)
+                iconField("Document root", systemImage: "folder", text: documentRootBinding)
+                iconField("PHP-FPM socket path", systemImage: "cable.connector", text: phpSocketPathBinding)
             } header: {
                 Label("PHP Site", systemImage: vhost.kind.systemImage)
             } footer: {
@@ -132,12 +136,23 @@ struct VhostEditorView: View {
             }
         case .reverseProxy:
             Section {
-                TextField("Target (host:port)", text: proxyTargetBinding)
+                iconField("Target (host:port)", systemImage: "arrow.triangle.swap", text: proxyTargetBinding)
             } header: {
                 Label("Reverse Proxy", systemImage: vhost.kind.systemImage)
             } footer: {
                 Text("Forwards requests to a local process, e.g. 127.0.0.1:3000.")
             }
+        }
+    }
+
+    private func iconField(_ title: String, systemImage: String, text: Binding<String>) -> some View {
+        HStack() {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+                .frame(width: 18, alignment: .center)
+            TextField(title, text: text)
+                .textFieldStyle(.roundedBorder)
+                .frame(maxWidth: .infinity)
         }
     }
 
