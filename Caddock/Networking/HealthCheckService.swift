@@ -110,11 +110,6 @@ final class HealthCheckService: BackendHealthChecking {
     }
 
     private func check(vhost: Vhost, settings: AppSettings) {
-        if vhost.isWildcard, vhost.kind != .reverseProxy {
-            statuses[vhost.id] = .unknown
-            return
-        }
-
         guard let request = makeRequest(for: vhost, settings: settings) else {
             statuses[vhost.id] = .unknown
             return
@@ -149,6 +144,8 @@ final class HealthCheckService: BackendHealthChecking {
     }
 
     private func makeRequest(for vhost: Vhost, settings: AppSettings) -> URLRequest? {
+        guard let host = vhost.healthCheckHost else { return nil }
+
         switch vhost.kind {
         case .reverseProxy:
             guard let target = vhost.proxyTarget?.trimmingCharacters(in: .whitespaces), !target.isEmpty else {
@@ -163,7 +160,7 @@ final class HealthCheckService: BackendHealthChecking {
             guard let url else { return nil }
             var request = URLRequest(url: url)
             request.httpMethod = "HEAD"
-            request.setValue(vhost.domain, forHTTPHeaderField: "Host")
+            request.setValue(host, forHTTPHeaderField: "Host")
             return request
 
         case .staticSite, .phpSite:
@@ -171,7 +168,7 @@ final class HealthCheckService: BackendHealthChecking {
             guard let url = URL(string: "http://localhost:\(port)/") else { return nil }
             var request = URLRequest(url: url)
             request.httpMethod = "HEAD"
-            request.setValue(vhost.domain, forHTTPHeaderField: "Host")
+            request.setValue(host, forHTTPHeaderField: "Host")
             return request
         }
     }

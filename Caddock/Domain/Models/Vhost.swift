@@ -126,6 +126,18 @@ struct Vhost: Identifiable, Codable, Equatable {
         return trimmed.isEmpty ? defaultIndexFiles() : trimmed
     }
 
+    /// Hostname used for health probes. Wildcards are not valid Host headers,
+    /// so prefer an exact alias, else a synthetic name under the wildcard.
+    var healthCheckHost: String? {
+        if let exact = allDomains.first(where: { !LocalDomainPolicy.isWildcardDomain($0) }) {
+            return exact
+        }
+        guard isWildcard else { return nil }
+        let suffix = String(domain.dropFirst(2))
+        guard !suffix.isEmpty else { return nil }
+        return "caddock.\(suffix)"
+    }
+
     func browserURL(settings: AppSettings, useStandardPorts: Bool) -> URL? {
         guard !domain.isEmpty, !isWildcard else { return nil }
 

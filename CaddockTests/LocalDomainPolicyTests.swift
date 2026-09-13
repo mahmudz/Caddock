@@ -40,4 +40,23 @@ final class LocalDomainPolicyTests: XCTestCase {
         XCTAssertFalse(LocalDomainPolicy.isRecommendedTLD("io"))
         XCTAssertFalse(LocalDomainPolicy.isRecommendedTLD("local"))
     }
+
+    func testHealthCheckHostPrefersExactAliasForWildcard() {
+        let vhost = Vhost(
+            domain: "*.wordpress.test",
+            aliases: ["wordpress.test"],
+            kind: .phpSite
+        )
+        XCTAssertEqual(vhost.healthCheckHost, "wordpress.test")
+    }
+
+    func testHealthCheckHostSynthesizesNameWhenWildcardHasNoAlias() {
+        let vhost = Vhost(domain: "*.wordpress.test", kind: .phpSite)
+        XCTAssertEqual(vhost.healthCheckHost, "caddock.wordpress.test")
+    }
+
+    func testHealthCheckHostUsesExactDomain() {
+        let vhost = Vhost(domain: "nextcloud.test", kind: .phpSite)
+        XCTAssertEqual(vhost.healthCheckHost, "nextcloud.test")
+    }
 }
