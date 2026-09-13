@@ -1,5 +1,5 @@
+import Darwin
 import Foundation
-import Network
 import Observation
 
 @Observable
@@ -9,9 +9,10 @@ final class LocalDNSResponder: LocalDNSResponding {
     private(set) var isRunning = false
     private(set) var lastError: String?
 
-    private var listener: NWListener?
     private var tlds: Set<String> = []
     private let queue = DispatchQueue(label: "dev.mahmudz.Caddock.dns")
+    private var socketFD: Int32 = -1
+    private var readSource: DispatchSourceRead?
 
     func update(tlds: [String]) {
         self.tlds = Set(tlds.map { $0.lowercased() }.filter { !$0.isEmpty })
@@ -23,33 +24,23 @@ final class LocalDNSResponder: LocalDNSResponding {
     }
 
     func start() {
-        guard listener == nil else { return }
+        stop()
         do {
-            let parameters = NWParameters.udp
-            parameters.allowLocalEndpointReuse = true
-            guard let port = NWEndpoint.Port(rawValue: UInt16(HelperConstants.dnsListenPort)) else { return }
-            let listener = try NWListener(using: parameters, on: port)
-            listener.newConnectionHandler = { [weak self] connection in
-                self?.handle(connection: connection)
+            let fd = try Self.bindLoopbackIPv4(port: UInt16(HelperConstants.dnsListenPort))
+            socketFD = fd
+
+            let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
+            source.setEventHandler { [weak self] in
+                self?.readAndReply()
             }
-            listener.stateUpdateHandler = { [weak self] state in
-                switch state {
-                case .ready:
-                    self?.isRunning = true
-                    self?.lastError = nil
-                    Self.logger.info("DNS responder listening on 127.0.0.1:\(HelperConstants.dnsListenPort)")
-                case .failed(let error):
-                    self?.isRunning = false
-                    self?.lastError = error.localizedDescription
-                    Self.logger.error("DNS responder failed: \(error.localizedDescription)")
-                case .cancelled:
-                    self?.isRunning = false
-                default:
-                    break
-                }
+            source.setCancelHandler {
+                Darwin.close(fd)
             }
-            listener.start(queue: queue)
-            self.listener = listener
+            source.resume()
+            readSource = source
+            isRunning = true
+            lastError = nil
+            Self.logger.info("DNS responder listening on 127.0.0.1:\(HelperConstants.dnsListenPort)")
         } catch {
             lastError = error.localizedDescription
             Self.logger.error("Failed to start DNS responder: \(error.localizedDescription)")
@@ -57,19 +48,66 @@ final class LocalDNSResponder: LocalDNSResponding {
     }
 
     func stop() {
-        listener?.cancel()
-        listener = nil
+        readSource?.cancel()
+        readSource = nil
+        socketFD = -1
         isRunning = false
     }
 
-    private func handle(connection: NWConnection) {
-        connection.start(queue: queue)
-        connection.receiveMessage { [weak self] data, _, _, _ in
-            defer { connection.cancel() }
-            guard let self, let data, !data.isEmpty else { return }
-            guard let response = self.buildResponse(for: data) else { return }
-            connection.send(content: response, completion: .contentProcessed { _ in })
+    private func readAndReply() {
+        let fd = socketFD
+        guard fd >= 0 else { return }
+
+        var buffer = [UInt8](repeating: 0, count: 2048)
+        var addr = sockaddr_in()
+        var addrLen = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let received = buffer.withUnsafeMutableBytes { raw in
+            withUnsafeMutablePointer(to: &addr) { addrPtr in
+                addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                    recvfrom(fd, raw.baseAddress, raw.count, 0, sockPtr, &addrLen)
+                }
+            }
         }
+        guard received > 0 else { return }
+
+        let request = Data(buffer.prefix(received))
+        guard let response = buildResponse(for: request) else { return }
+
+        _ = response.withUnsafeBytes { raw in
+            withUnsafePointer(to: &addr) { addrPtr in
+                addrPtr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                    sendto(fd, raw.baseAddress, response.count, 0, sockPtr, addrLen)
+                }
+            }
+        }
+    }
+
+    private static func bindLoopbackIPv4(port: UInt16) throws -> Int32 {
+        let fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        guard fd >= 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+
+        var reuse: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
+        var addr = sockaddr_in()
+        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = port.bigEndian
+        addr.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+
+        let bound = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                bind(fd, sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard bound == 0 else {
+            let code = errno
+            Darwin.close(fd)
+            throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+        }
+        return fd
     }
 
     private func buildResponse(for request: Data) -> Data? {

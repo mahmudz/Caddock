@@ -38,6 +38,8 @@ enum ResolverManager {
                 throw ResolverManagerError.writeFailed(error.localizedDescription)
             }
         }
+
+        _ = try? ProcessRunner.run("/usr/bin/killall", ["-HUP", "mDNSResponder"])
     }
 
     static func removeAll() throws {

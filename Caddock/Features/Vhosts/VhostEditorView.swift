@@ -76,7 +76,7 @@ struct VhostEditorView: View {
         } header: {
             Label("Domain", systemImage: "globe")
         } footer: {
-            Text("Aliases serve the same site block under additional hostnames. Use *.myapp.test for wildcards (requires privileged helper + local DNS).")
+            Text("Aliases share one site block. Wildcards (*.myapp.test) use local DNS, not /etc/hosts. Chrome uses its own resolver — turn off Settings → Privacy and security → Security → Use (OS Default) DNS.")
         }
     }
 
