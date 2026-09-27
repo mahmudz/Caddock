@@ -37,6 +37,39 @@ Not Mac App Store. No App Sandbox. Distributed as a Developer ID, notarized DMG 
 - [Caddy 2](https://caddyserver.com) (Homebrew, or downloaded in-app)
 - Optional: privileged helper for ports 80/443, hosts, and wildcards
 
+## Installation
+
+Caddock is currently distributed as a **direct download** and is **not notarized by Apple**.
+
+1. Download the latest release from the [GitHub Releases](https://github.com/mahmudz/Caddock/releases) page.
+2. Open the downloaded DMG and drag **Caddock.app** to your `Applications` folder.
+3. Open Caddock.
+
+If macOS prevents the app from opening because it cannot verify the developer, you can either use **System Settings** or Terminal.
+
+### Option 1: Open Anyway
+
+Go to **System Settings → Privacy & Security**. You should see a message indicating that Caddock was blocked. Click **Open Anyway**, then confirm that you want to open the application.
+
+### Option 2: Terminal
+
+If you prefer using Terminal, remove the quarantine attribute from the application:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Caddock.app
+```
+
+Then launch Caddock normally:
+
+```bash
+open /Applications/Caddock.app
+```
+
+> **Security note:** Only remove the quarantine attribute if you downloaded Caddock from the project's official GitHub Releases page and trust the source.
+
+After launching, the setup wizard will guide you through installing Caddy, configuring the optional privileged helper, and trusting Caddy's local Root CA.
+
+
 ## Usage
 
 1. Launch Caddock. The setup wizard installs Caddy, offers the privileged helper, and trusts the local CA.
